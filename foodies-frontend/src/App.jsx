@@ -1,4 +1,4 @@
-import Home from "../src/pages/admin";
+import Home from "../src/pages/admin.jsx";
 
 function App() {
   return <Home />;

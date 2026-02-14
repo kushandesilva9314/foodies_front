@@ -1,25 +1,36 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Plus, Trash2, Edit2, X, Upload, Image as ImageIcon } from "lucide-react";
+import { 
+  getAllProducts, 
+  createProduct, 
+  updateProduct, 
+  deleteProduct 
+} from "../../services/productService";
+import { getAllMenus } from "../../services/menuService";
+import { getAllCategories } from "../../services/categoryService";
+import { useToast } from "../../hooks/useToast";
+import ToastContainer from "../common/ToastContainer";
+import ConfirmModal from "../common/ConfirmModal";
 
 const AddProduct = () => {
   const [products, setProducts] = useState([]);
+  const [menus, setMenus] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
 
-  // Dummy data for dropdowns - Replace with actual data from Menu and Category components
-  const [menus] = useState([
-    { id: 1, name: "Breakfast" },
-    { id: 2, name: "Lunch" },
-    { id: 3, name: "Dinner" },
-  ]);
+  // Use toast hook
+  const toast = useToast();
 
-  const [categories] = useState([
-    { id: 1, name: "Appetizers" },
-    { id: 2, name: "Main Course" },
-    { id: 3, name: "Desserts" },
-    { id: 4, name: "Beverages" },
-  ]);
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    productId: null,
+    productName: ""
+  });
 
   // Form state
   const [itemNo, setItemNo] = useState("");
@@ -34,18 +45,69 @@ const AddProduct = () => {
   const [featured, setFeatured] = useState("no");
   const [discount, setDiscount] = useState("0");
 
-  // Handle image upload
+  // Calculate discounted price
+  const calculateDiscountedPrice = (originalPrice, discountPercent) => {
+    if (!discountPercent || discountPercent === 0) return originalPrice;
+    return originalPrice - (originalPrice * discountPercent / 100);
+  };
+
+  // Get display price for a product
+  const getDisplayPrice = (product) => {
+    const originalPrice = parseFloat(product.price);
+    if (product.featured === "yes" && product.discount > 0) {
+      return {
+        original: originalPrice,
+        discounted: calculateDiscountedPrice(originalPrice, product.discount),
+        hasDiscount: true
+      };
+    }
+    return {
+      original: originalPrice,
+      discounted: originalPrice,
+      hasDiscount: false
+    };
+  };
+
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  // Fetch products, menus, and categories
+  const fetchAllData = async () => {
+    try {
+      setFetchLoading(true);
+      
+      const [productsRes, menusRes, categoriesRes] = await Promise.all([
+        getAllProducts(),
+        getAllMenus(),
+        getAllCategories()
+      ]);
+      
+      setProducts(productsRes.data || []);
+      setMenus(menusRes.data || []);
+      setCategories(categoriesRes.data || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load data. Please refresh the page.');
+    } finally {
+      setFetchLoading(false);
+    }
+  };
+
+  // Handle image upload - KEEP THE FILE OBJECT
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file && (file.type === "image/png" || file.type === "image/jpeg" || file.type === "image/jpg")) {
       setProductImage(file);
+      
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
       };
       reader.readAsDataURL(file);
     } else {
-      alert("Please upload a valid image (PNG, JPEG, JPG)");
+      toast.warning("Please upload a valid image (PNG, JPEG, JPG)");
     }
   };
 
@@ -62,83 +124,82 @@ const AddProduct = () => {
     const trimmedItemNo = itemNumber.trim().toLowerCase();
     return products.some(
       (product) =>
-        product.itemNo.toLowerCase() === trimmedItemNo &&
+        product.item_no.toLowerCase() === trimmedItemNo &&
         (!editingProduct || product.id !== editingProduct.id)
     );
   };
 
   // Handle form submit
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!itemNo.trim() || !productName.trim() || !productImage || !description.trim() || !price || !selectedCategory) {
-      alert("Please fill in all required fields");
+    // For CREATE: require image file
+    // For UPDATE: image is optional (only required if user wants to change it)
+    if (!editingProduct && !productImage) {
+      toast.warning("Please upload a product image");
       return;
     }
 
-    // Check for duplicate item number
+    if (!itemNo.trim() || !productName.trim() || !description.trim() || !price) {
+      toast.warning("Please fill in all required fields");
+      return;
+    }
+
     if (isDuplicateItemNo(itemNo)) {
-      alert(`A product with Item No "${itemNo.trim()}" already exists. Please use a different Item No.`);
+      toast.error(`A product with Item No "${itemNo.trim()}" already exists`);
       return;
     }
 
-    // Validate price
     if (isNaN(price) || parseFloat(price) <= 0) {
-      alert("Please enter a valid price");
+      toast.error("Please enter a valid price");
       return;
     }
 
-    // Validate discount
     if (isNaN(discount) || parseFloat(discount) < 0 || parseFloat(discount) > 100) {
-      alert("Discount must be between 0 and 100");
+      toast.error("Discount must be between 0 and 100");
       return;
     }
 
-    // Ensure discount is 0 if featured is No
-    const finalDiscount = featured === "no" ? 0 : parseFloat(discount);
+    setLoading(true);
 
-    if (editingProduct) {
-      // Update existing product
-      setProducts(
-        products.map((product) =>
-          product.id === editingProduct.id
-            ? {
-                ...product,
-                itemNo: itemNo.trim(),
-                name: productName.trim(),
-                image: imagePreview,
-                description: description.trim(),
-                price: parseFloat(price),
-                availability: availability,
-                menu: selectedMenu,
-                category: selectedCategory,
-                featured: featured,
-                discount: finalDiscount,
-              }
-            : product
-        )
-      );
-      setEditingProduct(null);
-    } else {
-      // Add new product with featured and discount set to defaults
-      const newProduct = {
-        id: Date.now(),
-        itemNo: itemNo.trim(),
+    try {
+      const productData = {
+        item_no: itemNo.trim(),
         name: productName.trim(),
-        image: imagePreview,
         description: description.trim(),
         price: parseFloat(price),
         availability: availability,
-        menu: selectedMenu,
-        category: selectedCategory,
-        featured: "no", // Default value (not shown in Add form)
-        discount: 0, // Default value (not shown in Add form)
+        menu_id: selectedMenu || null,
+        category_id: selectedCategory || null,
       };
-      setProducts([...products, newProduct]);
-    }
 
-    // Reset form
-    resetForm();
+      // Only add image if it's a new file (File object)
+      if (productImage instanceof File) {
+        productData.image = productImage;
+      }
+
+      if (editingProduct) {
+        productData.featured = featured;
+        productData.discount = parseFloat(discount);
+        
+        const response = await updateProduct(editingProduct.id, productData);
+        toast.success(response.message || 'Product updated successfully!');
+        await fetchAllData();
+      } else {
+        // For create, image is always required and already checked above
+        productData.image = productImage;
+        const response = await createProduct(productData);
+        toast.success(response.message || 'Product created successfully!');
+        await fetchAllData();
+      }
+
+      resetForm();
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast.error(error.message || 'Failed to save product');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Reset form
@@ -155,26 +216,56 @@ const AddProduct = () => {
     setFeatured("no");
     setDiscount("0");
     setShowForm(false);
+    setEditingProduct(null);
   };
 
-  // Handle delete
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
-      setProducts(products.filter((product) => product.id !== id));
+  // Open delete confirmation modal
+  const openDeleteModal = (product) => {
+    setConfirmModal({
+      isOpen: true,
+      productId: product.id,
+      productName: product.name
+    });
+  };
+
+  // Close delete confirmation modal
+  const closeDeleteModal = () => {
+    setConfirmModal({
+      isOpen: false,
+      productId: null,
+      productName: ""
+    });
+  };
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = async () => {
+    setLoading(true);
+
+    try {
+      const response = await deleteProduct(confirmModal.productId);
+      toast.success(response.message || 'Product deleted successfully!');
+      await fetchAllData();
+      closeDeleteModal();
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error(error.message || 'Failed to delete product');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Handle update
+  // Handle update button click
   const handleUpdate = (product) => {
     setEditingProduct(product);
-    setItemNo(product.itemNo);
+    setItemNo(product.item_no);
     setProductName(product.name);
-    setImagePreview(product.image);
+    setImagePreview(product.image); // Show existing image URL
+    setProductImage(null); // Reset to null - user can optionally upload new image
     setDescription(product.description);
     setPrice(product.price.toString());
     setAvailability(product.availability);
-    setSelectedMenu(product.menu);
-    setSelectedCategory(product.category);
+    setSelectedMenu(product.menu_id || "");
+    setSelectedCategory(product.category_id || "");
     setFeatured(product.featured);
     setDiscount(product.discount.toString());
     setShowForm(true);
@@ -182,25 +273,41 @@ const AddProduct = () => {
 
   // Cancel form
   const handleCancel = () => {
-    setShowForm(false);
-    setEditingProduct(null);
     resetForm();
   };
 
   // Get menu name by id
   const getMenuName = (menuId) => {
-    const menu = menus.find((m) => m.id === parseInt(menuId));
+    if (!menuId) return "N/A";
+    const menu = menus.find((m) => m.id === menuId);
     return menu ? menu.name : "N/A";
   };
 
   // Get category name by id
   const getCategoryName = (categoryId) => {
-    const category = categories.find((c) => c.id === parseInt(categoryId));
+    if (!categoryId) return "N/A";
+    const category = categories.find((c) => c.id === categoryId);
     return category ? category.name : "N/A";
   };
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Toast Container */}
+      <ToastContainer toasts={toast.toasts} removeToast={toast.removeToast} />
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeDeleteModal}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Product"
+        message={`Are you sure you want to delete "${confirmModal.productName}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        loading={loading}
+      />
+
       {/* Header with Add Button */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
@@ -212,7 +319,8 @@ const AddProduct = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowForm(true)}
-            className="flex items-center justify-center space-x-2 bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 font-medium text-sm sm:text-base"
+            disabled={loading}
+            className="flex items-center justify-center space-x-2 bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 font-medium text-sm sm:text-base disabled:opacity-50"
           >
             <Plus size={18} className="sm:w-5 sm:h-5" />
             <span>Add Product</span>
@@ -235,6 +343,7 @@ const AddProduct = () => {
             <button
               onClick={handleCancel}
               className="text-gray-500 hover:text-red-600 transition-colors"
+              disabled={loading}
             >
               <X size={20} className="sm:w-6 sm:h-6" />
             </button>
@@ -243,7 +352,6 @@ const AddProduct = () => {
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             {/* Row 1: Item No and Product Name */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              {/* Item No */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Item No *
@@ -255,6 +363,7 @@ const AddProduct = () => {
                   placeholder="Enter item number"
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
                   required
+                  disabled={loading}
                 />
                 {itemNo.trim() && isDuplicateItemNo(itemNo) && (
                   <p className="text-red-600 text-xs sm:text-sm mt-2">
@@ -263,7 +372,6 @@ const AddProduct = () => {
                 )}
               </div>
 
-              {/* Product Name */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Product Name *
@@ -275,6 +383,7 @@ const AddProduct = () => {
                   placeholder="Enter product name"
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
                   required
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -282,24 +391,25 @@ const AddProduct = () => {
             {/* Product Image */}
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                Product Image * (PNG, JPEG, JPG)
+                Product Image * {editingProduct && "(Optional - upload only if changing image)"}
               </label>
               <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
-                {/* Upload Button */}
                 <label className="w-full sm:w-auto flex-shrink-0 cursor-pointer">
                   <div className="flex items-center justify-center sm:justify-start space-x-2 bg-gray-100 hover:bg-gray-200 px-4 py-2.5 sm:py-3 rounded-lg border-2 border-gray-300 transition-colors">
                     <Upload size={18} className="text-gray-600 sm:w-5 sm:h-5" />
-                    <span className="text-gray-700 font-medium text-sm sm:text-base">Choose Image</span>
+                    <span className="text-gray-700 font-medium text-sm sm:text-base">
+                      {editingProduct ? "Change Image" : "Choose Image"}
+                    </span>
                   </div>
                   <input
                     type="file"
                     accept="image/png, image/jpeg, image/jpg"
                     onChange={handleImageChange}
                     className="hidden"
+                    disabled={loading}
                   />
                 </label>
 
-                {/* Image Preview */}
                 {imagePreview ? (
                   <div className="relative mx-auto sm:mx-0">
                     <img
@@ -307,16 +417,19 @@ const AddProduct = () => {
                       alt="Preview"
                       className="h-20 w-20 sm:h-24 sm:w-24 object-cover rounded-lg border-2 border-orange-400 shadow-md"
                     />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProductImage(null);
-                        setImagePreview(null);
-                      }}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                    >
-                      <X size={14} className="sm:w-4 sm:h-4" />
-                    </button>
+                    {productImage instanceof File && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProductImage(null);
+                          setImagePreview(editingProduct ? editingProduct.image : null);
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                        disabled={loading}
+                      >
+                        <X size={14} className="sm:w-4 sm:h-4" />
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="h-20 w-20 sm:h-24 sm:w-24 mx-auto sm:mx-0 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
@@ -338,12 +451,12 @@ const AddProduct = () => {
                 rows="4"
                 className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors resize-none"
                 required
+                disabled={loading}
               />
             </div>
 
             {/* Row 2: Price and Availability */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              {/* Price */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Price * (LKR)
@@ -353,7 +466,6 @@ const AddProduct = () => {
                   value={price}
                   onChange={(e) => {
                     const value = e.target.value;
-                    // Allow only numbers and decimal point
                     if (value === "" || /^\d*\.?\d*$/.test(value)) {
                       setPrice(value);
                     }
@@ -361,10 +473,10 @@ const AddProduct = () => {
                   placeholder="Enter price"
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
                   required
+                  disabled={loading}
                 />
               </div>
 
-              {/* Availability */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Availability *
@@ -374,6 +486,7 @@ const AddProduct = () => {
                   onChange={(e) => setAvailability(e.target.value)}
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
                   required
+                  disabled={loading}
                 >
                   <option value="yes">Yes</option>
                   <option value="no">No</option>
@@ -383,7 +496,6 @@ const AddProduct = () => {
 
             {/* Row 3: Menu and Category */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              {/* Menu (Optional) */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Menu (Optional)
@@ -392,6 +504,7 @@ const AddProduct = () => {
                   value={selectedMenu}
                   onChange={(e) => setSelectedMenu(e.target.value)}
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
+                  disabled={loading}
                 >
                   <option value="">-- Select Menu --</option>
                   {menus.map((menu) => (
@@ -402,16 +515,15 @@ const AddProduct = () => {
                 </select>
               </div>
 
-              {/* Category (Required) */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                  Category *
+                  Category (Optional)
                 </label>
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
-                  required
+                  disabled={loading}
                 >
                   <option value="">-- Select Category --</option>
                   {categories.map((category) => (
@@ -426,7 +538,6 @@ const AddProduct = () => {
             {/* Featured and Discount (Only show when editing) */}
             {editingProduct && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-4 border-t-2 border-gray-200">
-                {/* Featured */}
                 <div>
                   <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                     Featured
@@ -435,13 +546,13 @@ const AddProduct = () => {
                     value={featured}
                     onChange={(e) => handleFeaturedChange(e.target.value)}
                     className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
+                    disabled={loading}
                   >
                     <option value="no">No</option>
                     <option value="yes">Yes</option>
                   </select>
                 </div>
 
-                {/* Discount */}
                 <div>
                   <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                     Discount (%)
@@ -452,9 +563,7 @@ const AddProduct = () => {
                     value={discount}
                     onChange={(e) => {
                       const value = e.target.value;
-                      // Allow only numbers and decimal point
                       if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                        // Ensure value is between 0 and 100
                         if (value === "" || (parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
                           setDiscount(value);
                         }
@@ -462,8 +571,15 @@ const AddProduct = () => {
                     }}
                     placeholder="Enter discount percentage"
                     className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    disabled={featured === "no"}
+                    disabled={featured === "no" || loading}
                   />
+                  {featured === "yes" && price && discount && parseFloat(discount) > 0 && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                      <p className="text-xs sm:text-sm text-green-700">
+                        💰 Final Price: <span className="font-bold">LKR {calculateDiscountedPrice(parseFloat(price), parseFloat(discount)).toFixed(2)}</span>
+                      </p>
+                    </div>
+                  )}
                   {featured === "yes" && (
                     <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       Discount is applicable when product is featured
@@ -484,16 +600,18 @@ const AddProduct = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 type="submit"
-                className="w-full sm:flex-1 bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 font-medium text-sm sm:text-base"
+                disabled={loading}
+                className="w-full sm:flex-1 bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 font-medium text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {editingProduct ? "Update Product" : "Add Product"}
+                {loading ? "Saving..." : editingProduct ? "Update Product" : "Add Product"}
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 type="button"
                 onClick={handleCancel}
-                className="w-full sm:flex-1 bg-gray-200 text-gray-700 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg hover:bg-gray-300 transition-all duration-300 font-medium text-sm sm:text-base"
+                disabled={loading}
+                className="w-full sm:flex-1 bg-gray-200 text-gray-700 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg hover:bg-gray-300 transition-all duration-300 font-medium text-sm sm:text-base disabled:opacity-50"
               >
                 Cancel
               </motion.button>
@@ -503,7 +621,12 @@ const AddProduct = () => {
       )}
 
       {/* Products Table */}
-      {products.length > 0 ? (
+      {fetchLoading ? (
+        <div className="bg-white rounded-lg shadow-md p-8 sm:p-12 text-center">
+          <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="text-gray-600 mt-4 text-sm sm:text-base">Loading products...</p>
+        </div>
+      ) : products.length > 0 ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -518,103 +641,103 @@ const AddProduct = () => {
                   <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Item No</th>
                   <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Product</th>
                   <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Price</th>
-                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Category</th>
                   <th className="px-4 sm:px-6 py-3 sm:py-4 text-center font-semibold text-sm sm:text-base">Availability</th>
                   <th className="px-4 sm:px-6 py-3 sm:py-4 text-center font-semibold text-sm sm:text-base w-24 sm:w-32">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {products.map((product, index) => (
-                  <motion.tr
-                    key={product.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    {/* Item No */}
-                    <td className="px-4 sm:px-6 py-3 sm:py-4">
-                      <span className="font-mono text-gray-700 text-sm sm:text-base">{product.itemNo}</span>
-                    </td>
+                {products.map((product, index) => {
+                  const priceInfo = getDisplayPrice(product);
+                  return (
+                    <motion.tr
+                      key={product.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
+                        <span className="font-mono text-gray-700 text-sm sm:text-base">{product.item_no}</span>
+                      </td>
 
-                    {/* Product Column */}
-                    <td className="px-4 sm:px-6 py-3 sm:py-4">
-                      <div className="flex items-center space-x-3 sm:space-x-4">
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="h-12 w-12 sm:h-16 sm:w-16 object-cover rounded-lg border-2 border-orange-300 shadow-sm"
-                        />
-                        <div>
-                          <p className="font-semibold text-gray-800 text-sm sm:text-base">{product.name}</p>
-                          <p className="text-xs sm:text-sm text-gray-500 line-clamp-1">{product.description}</p>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
+                        <div className="flex items-center space-x-3 sm:space-x-4">
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="h-12 w-12 sm:h-16 sm:w-16 object-cover rounded-lg border-2 border-orange-300 shadow-sm"
+                          />
+                          <span className="font-semibold text-gray-800 text-sm sm:text-base">{product.name}</span>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Price */}
-                    <td className="px-4 sm:px-6 py-3 sm:py-4">
-                      <span className="font-semibold text-gray-800 text-sm sm:text-base">
-                        LKR {product.price.toFixed(2)}
-                      </span>
-                      {product.featured === "yes" && product.discount > 0 && (
-                        <span className="ml-2 text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">
-                          -{product.discount}%
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
+                        {priceInfo.hasDiscount ? (
+                          <div className="flex flex-col">
+                            <span className="text-gray-400 line-through text-xs sm:text-sm">
+                              LKR {priceInfo.original.toFixed(2)}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-green-600 text-sm sm:text-base">
+                                LKR {priceInfo.discounted.toFixed(2)}
+                              </span>
+                              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
+                                -{product.discount}%
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="font-semibold text-gray-800 text-sm sm:text-base">
+                            LKR {priceInfo.original.toFixed(2)}
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-center">
+                        <span
+                          className={`inline-block px-2 sm:px-3 py-1 rounded-full text-xs font-semibold ${
+                            product.availability === "yes"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {product.availability === "yes" ? "Available" : "Unavailable"}
                         </span>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Category */}
-                    <td className="px-4 sm:px-6 py-3 sm:py-4">
-                      <span className="text-gray-700 text-sm sm:text-base">{getCategoryName(product.category)}</span>
-                    </td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
+                        <div className="flex items-center justify-center space-x-2 sm:space-x-3">
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handleUpdate(product)}
+                            disabled={loading}
+                            className="p-1.5 sm:p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+                            title="Update"
+                          >
+                            <Edit2 size={18} className="sm:w-5 sm:h-5" />
+                          </motion.button>
 
-                    {/* Availability */}
-                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-center">
-                      <span
-                        className={`inline-block px-2 sm:px-3 py-1 rounded-full text-xs font-semibold ${
-                          product.availability === "yes"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {product.availability === "yes" ? "Available" : "Unavailable"}
-                      </span>
-                    </td>
-
-                    {/* Action Column */}
-                    <td className="px-4 sm:px-6 py-3 sm:py-4">
-                      <div className="flex items-center justify-center space-x-2 sm:space-x-3">
-                        {/* Update Button */}
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleUpdate(product)}
-                          className="p-1.5 sm:p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                          title="Update"
-                        >
-                          <Edit2 size={18} className="sm:w-5 sm:h-5" />
-                        </motion.button>
-
-                        {/* Delete Button */}
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleDelete(product.id)}
-                          className="p-1.5 sm:p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={18} className="sm:w-5 sm:h-5" />
-                        </motion.button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => openDeleteModal(product)}
+                            disabled={loading}
+                            className="p-1.5 sm:p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                            title="Delete"
+                          >
+                            <Trash2 size={18} className="sm:w-5 sm:h-5" />
+                          </motion.button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
-          {/* Mobile/Tablet Card View */}
+          {/* Mobile/Tablet Card View - SIMPLIFIED */}
           <div className="lg:hidden divide-y divide-gray-200">
             {products.map((product, index) => (
               <motion.div
@@ -624,70 +747,44 @@ const AddProduct = () => {
                 transition={{ delay: index * 0.1 }}
                 className="p-4 hover:bg-gray-50 transition-colors"
               >
-                {/* Product Image and Name */}
-                <div className="flex items-start space-x-3 mb-3">
+                {/* Image, Name, Item No, and Action Buttons */}
+                <div className="flex items-center gap-3">
+                  {/* Product Image */}
                   <img
                     src={product.image}
                     alt={product.name}
-                    className="h-20 w-20 object-cover rounded-lg border-2 border-orange-300 shadow-sm flex-shrink-0"
+                    className="h-16 w-16 object-cover rounded-lg border-2 border-orange-300 shadow-sm flex-shrink-0"
                   />
+                  
+                  {/* Name and Item No */}
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-gray-800 text-base mb-1">{product.name}</h4>
-                    <p className="text-sm text-gray-500 line-clamp-2 mb-2">{product.description}</p>
+                    <h4 className="font-semibold text-gray-800 text-sm sm:text-base mb-1 truncate">
+                      {product.name}
+                    </h4>
                     <span className="inline-block font-mono text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                      #{product.itemNo}
+                      #{product.item_no}
                     </span>
                   </div>
-                </div>
 
-                {/* Product Details */}
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Price</p>
-                    <p className="font-semibold text-gray-800 text-sm">
-                      LKR {product.price.toFixed(2)}
-                      {product.featured === "yes" && product.discount > 0 && (
-                        <span className="ml-2 text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
-                          -{product.discount}%
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Category</p>
-                    <p className="text-sm text-gray-700">{getCategoryName(product.category)}</p>
-                  </div>
-                </div>
-
-                {/* Availability and Actions */}
-                <div className="flex items-center justify-between pt-3 border-t border-gray-200">
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                      product.availability === "yes"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {product.availability === "yes" ? "Available" : "Unavailable"}
-                  </span>
-                  <div className="flex items-center space-x-2">
-                    {/* Update Button */}
+                  {/* Action Buttons */}
+                  <div className="flex items-center space-x-2 flex-shrink-0">
                     <motion.button
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => handleUpdate(product)}
-                      className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                      disabled={loading}
+                      className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
                       title="Update"
                     >
                       <Edit2 size={18} />
                     </motion.button>
 
-                    {/* Delete Button */}
                     <motion.button
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => handleDelete(product.id)}
-                      className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                      onClick={() => openDeleteModal(product)}
+                      disabled={loading}
+                      className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
                       title="Delete"
                     >
                       <Trash2 size={18} />
