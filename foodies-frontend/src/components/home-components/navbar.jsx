@@ -1,18 +1,21 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { ShoppingCart, User, Menu, X, UserCircle, History, Package, LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
 
 const Navbar = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [activeLink, setActiveLink] = useState("home");
 
-  // DUMMY DATA - Replace with actual authentication state from backend
-  const [isLoggedIn, setIsLoggedIn] = useState(true); // Change to false to test logged-out state
-  const [user, setUser] = useState({
-    name: "John Doe",
-    profileImage: null, // Set to null for default avatar, or add image URL
-  });
+  // Real auth state from localStorage
+  const token = localStorage.getItem("token");
+  const storedUser = localStorage.getItem("user");
+  const [isLoggedIn, setIsLoggedIn] = useState(!!token);
+  const [user, setUser] = useState(
+    storedUser ? JSON.parse(storedUser) : { name: "", profile_photo: null }
+  );
 
   const navLinks = [
     { name: "Home", id: "home" },
@@ -26,6 +29,7 @@ const Navbar = () => {
 
   // Get user initials for avatar
   const getUserInitials = () => {
+    if (!user.name) return "U";
     return user.name
       .split(" ")
       .map((n) => n[0])
@@ -36,15 +40,16 @@ const Navbar = () => {
 
   // Handle logout
   const handleLogout = () => {
-    // DUMMY ACTION - Replace with actual logout logic
-    console.log("Logout clicked");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setIsLoggedIn(false);
+    setUser({ name: "", profile_photo: null });
+    navigate("/login");
   };
 
-  // Handle sign in
+  // Handle sign in — navigate to signup page
   const handleSignIn = () => {
-    // DUMMY ACTION - Replace with actual sign-in logic
-    console.log("Sign In clicked");
+    navigate("/signup");
   };
 
   return (
@@ -58,9 +63,7 @@ const Navbar = () => {
             transition={{ duration: 0.5 }}
             className="flex items-center space-x-3 flex-shrink-0"
           >
-            {/* Circular Logo Container - No Animation */}
             <div className="relative h-12 w-12">
-              {/* Logo container */}
               <div className="relative bg-white rounded-full p-0.5 shadow-lg h-full w-full flex items-center justify-center">
                 <img
                   src={logo}
@@ -69,7 +72,6 @@ const Navbar = () => {
                 />
               </div>
             </div>
-
             <div className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent">
               FOODIES
             </div>
@@ -110,14 +112,14 @@ const Navbar = () => {
             ))}
           </motion.div>
 
-          {/* Right Side - Profile & Cart - Far Right */}
+          {/* Right Side - Profile & Cart */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
             className="hidden md:flex items-center space-x-4 flex-shrink-0"
           >
-            {/* Cart Button - Icon Only */}
+            {/* Cart Button */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -129,17 +131,16 @@ const Navbar = () => {
                 animate={{ scale: 1 }}
                 className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white"
               >
-                3
+                0
               </motion.span>
             </motion.button>
 
-            {/* Profile Section - Conditional Rendering */}
+            {/* Profile Section */}
             {isLoggedIn ? (
-              // Logged In - Profile with buttons
               <div className="flex items-center space-x-3 bg-gray-50 px-4 py-2 rounded-full border border-gray-200">
-                {user.profileImage ? (
+                {user.profile_photo ? (
                   <img
-                    src={user.profileImage}
+                    src={user.profile_photo}
                     alt={user.name}
                     className="h-9 w-9 rounded-full object-cover border-2 border-orange-400"
                   />
@@ -157,7 +158,7 @@ const Navbar = () => {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => console.log("Profile clicked")}
+                    onClick={() => navigate("/profile")}
                     className="p-2 hover:bg-orange-100 rounded-full transition-colors group"
                     title="Profile"
                   >
@@ -166,7 +167,7 @@ const Navbar = () => {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => console.log("Orders clicked")}
+                    onClick={() => navigate("/orders")}
                     className="p-2 hover:bg-orange-100 rounded-full transition-colors group"
                     title="Orders"
                   >
@@ -175,7 +176,7 @@ const Navbar = () => {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => console.log("History clicked")}
+                    onClick={() => navigate("/history")}
                     className="p-2 hover:bg-orange-100 rounded-full transition-colors group"
                     title="History"
                   >
@@ -193,7 +194,6 @@ const Navbar = () => {
                 </div>
               </div>
             ) : (
-              // Logged Out - Professional Sign In button
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -257,19 +257,17 @@ const Navbar = () => {
               className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 py-3 rounded-lg flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all font-medium"
             >
               <ShoppingCart size={20} />
-              <span>Cart (3)</span>
+              <span>Cart (0)</span>
             </motion.button>
 
             {isLoggedIn ? (
-              // Logged In - Mobile Profile
               <>
                 <motion.div
-                  whileTap={{ scale: 0.98 }}
                   className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center space-x-3"
                 >
-                  {user.profileImage ? (
+                  {user.profile_photo ? (
                     <img
-                      src={user.profileImage}
+                      src={user.profile_photo}
                       alt={user.name}
                       className="h-10 w-10 rounded-full object-cover border-2 border-orange-400"
                     />
@@ -281,17 +279,14 @@ const Navbar = () => {
                     </div>
                   )}
                   <div className="flex flex-col items-start flex-grow">
-                    <span className="font-semibold text-gray-800">
-                      {user.name}
-                    </span>
+                    <span className="font-semibold text-gray-800">{user.name}</span>
                   </div>
                 </motion.div>
 
-                {/* Mobile Profile Action Buttons */}
                 <div className="grid grid-cols-2 gap-2">
                   <motion.button
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => console.log("Profile clicked")}
+                    onClick={() => { navigate("/profile"); setIsOpen(false); }}
                     className="bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:border-orange-300 hover:bg-orange-50 transition-all"
                   >
                     <UserCircle size={18} className="text-orange-600" />
@@ -299,7 +294,7 @@ const Navbar = () => {
                   </motion.button>
                   <motion.button
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => console.log("Orders clicked")}
+                    onClick={() => { navigate("/orders"); setIsOpen(false); }}
                     className="bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:border-orange-300 hover:bg-orange-50 transition-all"
                   >
                     <Package size={18} className="text-orange-600" />
@@ -307,7 +302,7 @@ const Navbar = () => {
                   </motion.button>
                   <motion.button
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => console.log("History clicked")}
+                    onClick={() => { navigate("/history"); setIsOpen(false); }}
                     className="bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:border-orange-300 hover:bg-orange-50 transition-all"
                   >
                     <History size={18} className="text-orange-600" />
@@ -324,7 +319,6 @@ const Navbar = () => {
                 </div>
               </>
             ) : (
-              // Logged Out - Mobile Sign In
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSignIn}
