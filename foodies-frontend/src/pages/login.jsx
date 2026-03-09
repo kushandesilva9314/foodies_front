@@ -1,43 +1,66 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, X, CheckCircle } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  X,
+  CheckCircle,
+  Home,
+} from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
 import logo from "../assets/logo.png";
+import {
+  loginUser,
+  forgotPassword,
+  verifyResetOTP,
+  resetPassword,
+  resendResetOTP,
+} from "../services/authService";
 
 const Login = () => {
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    rememberMe: false
+    rememberMe: false,
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  
+  const [formError, setFormError] = useState("");
+
   // Forgot Password States
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [resetStep, setResetStep] = useState(1); // 1: Email, 2: OTP, 3: New Password
+  const [resetStep, setResetStep] = useState(1);
   const [resetEmail, setResetEmail] = useState("");
+  const [resetEmailError, setResetEmailError] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [verifiedOtp, setVerifiedOtp] = useState(""); // store verified OTP for reset step
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordErrors, setPasswordErrors] = useState({});
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
+  const [modalError, setModalError] = useState("");
+  const [modalSuccess, setModalSuccess] = useState("");
 
   // Handle input change
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === "checkbox" ? checked : value,
     }));
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ""
-      }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
+    if (formError) setFormError("");
   };
 
   // Validation
@@ -46,7 +69,11 @@ const Login = () => {
 
     if (!formData.email.trim()) {
       newErrors.email = "Email address is required";
-    } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email.trim())) {
+    } else if (
+      !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(
+        formData.email.trim(),
+      )
+    ) {
       newErrors.email = "Please enter a valid email address";
     }
 
@@ -60,32 +87,38 @@ const Login = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle login form submit
+  // Handle login submit
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setLoading(true);
+    setFormError("");
 
-    setTimeout(() => {
-      console.log("Login attempt:", {
+    try {
+      const data = await loginUser({
         email: formData.email.trim().toLowerCase(),
-        rememberMe: formData.rememberMe
+        password: formData.password,
       });
-      
+
+      // Store token and user
+      localStorage.setItem("token", data.data.token);
+      localStorage.setItem("user", JSON.stringify(data.data.user));
+
+      // Redirect based on role
+      navigate(data.data.redirectTo);
+    } catch (error) {
+      setFormError(error.message || "Login failed. Please try again.");
+    } finally {
       setLoading(false);
-      alert('Login successful! (This is a demo)');
-    }, 2000);
+    }
   };
 
   // Start resend timer
   const startResendTimer = () => {
     setResendTimer(60);
     const interval = setInterval(() => {
-      setResendTimer(prev => {
+      setResendTimer((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
           return 0;
@@ -98,26 +131,37 @@ const Login = () => {
   // Handle forgot password - Send OTP
   const handleSendOTP = async (e) => {
     e.preventDefault();
+    setResetEmailError("");
+    setModalError("");
 
     if (!resetEmail.trim()) {
-      alert('Please enter your email address');
+      setResetEmailError("Email address is required");
       return;
     }
-
-    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(resetEmail.trim())) {
-      alert('Please enter a valid email address');
+    if (
+      !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(
+        resetEmail.trim(),
+      )
+    ) {
+      setResetEmailError("Please enter a valid email address");
       return;
     }
 
     setLoading(true);
 
-    setTimeout(() => {
-      console.log("OTP sent to:", resetEmail);
-      setLoading(false);
+    try {
+      await forgotPassword({ email: resetEmail.trim().toLowerCase() });
       setResetStep(2);
       startResendTimer();
-      alert('OTP sent to your email');
-    }, 1500);
+      setModalSuccess("Reset code sent to your email");
+      setTimeout(() => setModalSuccess(""), 3000);
+    } catch (error) {
+      setModalError(
+        error.message || "Failed to send reset code. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle OTP input
@@ -137,11 +181,11 @@ const Login = () => {
   // Handle OTP paste
   const handleOtpPaste = (e) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').slice(0, 6);
+    const pastedData = e.clipboardData.getData("text").slice(0, 6);
     if (!/^\d+$/.test(pastedData)) return;
 
-    const newOtp = pastedData.split('');
-    while (newOtp.length < 6) newOtp.push('');
+    const newOtp = pastedData.split("");
+    while (newOtp.length < 6) newOtp.push("");
     setOtp(newOtp);
 
     const lastInput = document.getElementById(`reset-otp-5`);
@@ -150,7 +194,7 @@ const Login = () => {
 
   // Handle OTP backspace
   const handleOtpKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
       const prevInput = document.getElementById(`reset-otp-${index - 1}`);
       if (prevInput) prevInput.focus();
     }
@@ -159,20 +203,30 @@ const Login = () => {
   // Handle OTP verification
   const handleVerifyOTP = async (e) => {
     e.preventDefault();
+    setModalError("");
 
-    const otpValue = otp.join('');
+    const otpValue = otp.join("");
     if (otpValue.length !== 6) {
-      alert('Please enter complete OTP');
+      setModalError("Please enter the complete 6-digit code");
       return;
     }
 
     setLoading(true);
 
-    setTimeout(() => {
-      console.log("OTP verified:", otpValue);
-      setLoading(false);
+    try {
+      await verifyResetOTP({
+        email: resetEmail.trim().toLowerCase(),
+        otp: otpValue,
+      });
+
+      setVerifiedOtp(otpValue); // store for reset step
       setResetStep(3);
-    }, 1500);
+      setModalError("");
+    } catch (error) {
+      setModalError(error.message || "Invalid OTP. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Resend OTP
@@ -180,96 +234,134 @@ const Login = () => {
     if (resendTimer > 0) return;
 
     setLoading(true);
-    
-    setTimeout(() => {
-      console.log("Resending OTP to:", resetEmail);
-      setLoading(false);
+    setModalError("");
+
+    try {
+      await resendResetOTP({ email: resetEmail.trim().toLowerCase() });
+      setOtp(["", "", "", "", "", ""]);
       startResendTimer();
-      alert('OTP resent successfully');
-    }, 1000);
+      setModalSuccess("Reset code resent successfully");
+      setTimeout(() => setModalSuccess(""), 3000);
+    } catch (error) {
+      setModalError(
+        error.message || "Failed to resend code. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Validate new password
   const validateNewPassword = () => {
+    const newErrors = {};
+
     if (!newPassword) {
-      alert('Password is required');
-      return false;
+      newErrors.newPassword = "Password is required";
+    } else if (newPassword.length < 8) {
+      newErrors.newPassword = "Password must be at least 8 characters";
+    } else if (!/(?=.*[a-z])/.test(newPassword)) {
+      newErrors.newPassword = "Password must contain a lowercase letter";
+    } else if (!/(?=.*[A-Z])/.test(newPassword)) {
+      newErrors.newPassword = "Password must contain an uppercase letter";
+    } else if (!/(?=.*\d)/.test(newPassword)) {
+      newErrors.newPassword = "Password must contain a number";
+    } else if (!/(?=.*[@$!%*?&])/.test(newPassword)) {
+      newErrors.newPassword =
+        "Password must contain a special character (@$!%*?&)";
     }
-    if (newPassword.length < 8) {
-      alert('Password must be at least 8 characters');
-      return false;
+
+    if (!confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password";
+    } else if (newPassword !== confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
     }
-    if (!/(?=.*[a-z])/.test(newPassword)) {
-      alert('Password must contain at least one lowercase letter');
-      return false;
-    }
-    if (!/(?=.*[A-Z])/.test(newPassword)) {
-      alert('Password must contain at least one uppercase letter');
-      return false;
-    }
-    if (!/(?=.*\d)/.test(newPassword)) {
-      alert('Password must contain at least one number');
-      return false;
-    }
-    if (!/(?=.*[@$!%*?&])/.test(newPassword)) {
-      alert('Password must contain at least one special character (@$!%*?&)');
-      return false;
-    }
-    if (newPassword !== confirmPassword) {
-      alert('Passwords do not match');
-      return false;
-    }
-    return true;
+
+    setPasswordErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   // Handle password reset
   const handleResetPassword = async (e) => {
     e.preventDefault();
+    setModalError("");
 
-    if (!validateNewPassword()) {
-      return;
-    }
+    if (!validateNewPassword()) return;
 
     setLoading(true);
 
-    setTimeout(() => {
-      console.log("Password reset for:", resetEmail);
+    try {
+      await resetPassword({
+        email: resetEmail.trim().toLowerCase(),
+        otp: verifiedOtp,
+        newPassword,
+      });
+
+      setModalSuccess("Password reset successfully! You can now login.");
+      setTimeout(() => {
+        closeForgotPasswordModal();
+      }, 2000);
+    } catch (error) {
+      setModalError(
+        error.message || "Password reset failed. Please try again.",
+      );
+    } finally {
       setLoading(false);
-      alert('Password reset successfully!');
-      closeForgotPasswordModal();
-    }, 1500);
+    }
   };
 
-  // Close modal and reset states
+  // Close modal and reset all states
   const closeForgotPasswordModal = () => {
     setShowForgotPassword(false);
     setResetStep(1);
     setResetEmail("");
+    setResetEmailError("");
     setOtp(["", "", "", "", "", ""]);
+    setVerifiedOtp("");
     setNewPassword("");
     setConfirmPassword("");
+    setPasswordErrors({});
     setShowNewPassword(false);
     setShowConfirmPassword(false);
     setResendTimer(0);
+    setModalError("");
+    setModalSuccess("");
   };
 
   return (
     <div className="min-h-screen relative flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 overflow-hidden">
       {/* Animated Gradient Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-100 via-red-50 to-yellow-100"></div>
-      
+
       {/* Food Icons Pattern */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-10 left-10 text-6xl animate-float">🍕</div>
-        <div className="absolute top-20 right-20 text-5xl animate-float-delay-1">🍔</div>
-        <div className="absolute bottom-32 left-20 text-7xl animate-float-delay-2">🍜</div>
-        <div className="absolute bottom-20 right-32 text-6xl animate-float-delay-3">🍰</div>
-        <div className="absolute top-1/3 left-1/4 text-5xl animate-float-delay-4">🥗</div>
-        <div className="absolute top-2/3 right-1/4 text-6xl animate-float">🍱</div>
-        <div className="absolute top-1/2 left-10 text-5xl animate-float-delay-1">🌮</div>
-        <div className="absolute bottom-1/3 right-10 text-7xl animate-float-delay-2">🍣</div>
-        <div className="absolute top-40 left-1/3 text-4xl animate-float-delay-3">🥘</div>
-        <div className="absolute bottom-40 right-1/3 text-5xl animate-float-delay-4">🍝</div>
+        <div className="absolute top-20 right-20 text-5xl animate-float-delay-1">
+          🍔
+        </div>
+        <div className="absolute bottom-32 left-20 text-7xl animate-float-delay-2">
+          🍜
+        </div>
+        <div className="absolute bottom-20 right-32 text-6xl animate-float-delay-3">
+          🍰
+        </div>
+        <div className="absolute top-1/3 left-1/4 text-5xl animate-float-delay-4">
+          🥗
+        </div>
+        <div className="absolute top-2/3 right-1/4 text-6xl animate-float">
+          🍱
+        </div>
+        <div className="absolute top-1/2 left-10 text-5xl animate-float-delay-1">
+          🌮
+        </div>
+        <div className="absolute bottom-1/3 right-10 text-7xl animate-float-delay-2">
+          🍣
+        </div>
+        <div className="absolute top-40 left-1/3 text-4xl animate-float-delay-3">
+          🥘
+        </div>
+        <div className="absolute bottom-40 right-1/3 text-5xl animate-float-delay-4">
+          🍝
+        </div>
       </div>
 
       {/* Gradient Overlay Blobs */}
@@ -278,6 +370,43 @@ const Login = () => {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-red-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-2000"></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-4000"></div>
       </div>
+
+      {/* Home Button - Top Left */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+        className="absolute top-6 left-6 z-20"
+      >
+        <Link to="/">
+          <motion.div
+            whileHover={{ scale: 1.2, rotate: -10 }}
+            whileTap={{ scale: 0.9 }}
+            className="relative group"
+          >
+            {/* Glow Ring */}
+            <motion.div
+              animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.1, 0.3] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute inset-0 bg-gradient-to-r from-orange-200 to-red-200 rounded-full blur-md"
+            />
+            {/* Button */}
+            <div className="relative bg-white/80 backdrop-blur-sm text-orange-500 p-3 rounded-full shadow-md border-2 border-orange-200 hover:border-orange-300 transition-colors duration-300">
+              <Home className="w-5 h-5" />
+            </div>
+            {/* Tooltip */}
+            <motion.div
+              initial={{ opacity: 0, x: -5 }}
+              whileHover={{ opacity: 1, x: 0 }}
+              className="absolute left-14 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur-sm text-orange-600 text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-md border border-orange-100"
+            >
+              Go Home
+              {/* Tooltip Arrow */}
+              <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white" />
+            </motion.div>
+          </motion.div>
+        </Link>
+      </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -295,14 +424,14 @@ const Login = () => {
           >
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-red-500 rounded-full blur-lg opacity-50"></div>
-              <img 
+              <img
                 src={logo}
-                alt="Foodies Logo" 
+                alt="Foodies Logo"
                 className="w-20 h-20 relative z-10 rounded-full shadow-2xl object-cover"
               />
             </div>
           </motion.div>
-          
+
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -329,6 +458,22 @@ const Login = () => {
           transition={{ delay: 0.4 }}
           className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-6 border border-white/20"
         >
+          {/* Global Form Error */}
+          <AnimatePresence>
+            {formError && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl"
+              >
+                <p className="text-red-600 text-sm text-center font-medium">
+                  {formError}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email Field */}
             <div>
@@ -418,7 +563,10 @@ const Login = () => {
                   onChange={handleChange}
                   className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded cursor-pointer"
                 />
-                <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700 cursor-pointer">
+                <label
+                  htmlFor="rememberMe"
+                  className="ml-2 block text-sm text-gray-700 cursor-pointer"
+                >
                   Remember me
                 </label>
               </div>
@@ -487,16 +635,13 @@ const Login = () => {
           </div>
 
           {/* Signup Link */}
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="text-center"
-          >
-            <a 
-              href="/signup"
+          <motion.div whileHover={{ scale: 1.02 }} className="text-center">
+            <Link
+              to="/signup"
               className="inline-block px-6 py-3 bg-gradient-to-r from-orange-100 to-red-100 text-orange-700 font-bold rounded-xl hover:from-orange-200 hover:to-red-200 transition-all duration-300"
             >
               Create New Account
-            </a>
+            </Link>
           </motion.div>
         </motion.div>
       </motion.div>
@@ -540,6 +685,38 @@ const Login = () => {
 
               {/* Modal Body */}
               <div className="p-5">
+                {/* Modal Error */}
+                <AnimatePresence>
+                  {modalError && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl"
+                    >
+                      <p className="text-red-600 text-xs text-center font-medium">
+                        {modalError}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Modal Success */}
+                <AnimatePresence>
+                  {modalSuccess && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl"
+                    >
+                      <p className="text-green-600 text-xs text-center font-medium">
+                        {modalSuccess}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <AnimatePresence mode="wait">
                   {/* Step 1: Email Input */}
                   {resetStep === 1 && (
@@ -562,11 +739,28 @@ const Login = () => {
                           <input
                             type="email"
                             value={resetEmail}
-                            onChange={(e) => setResetEmail(e.target.value)}
+                            onChange={(e) => {
+                              setResetEmail(e.target.value);
+                              if (resetEmailError) setResetEmailError("");
+                              if (modalError) setModalError("");
+                            }}
                             placeholder="Enter your email"
-                            className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-400 hover:border-orange-300 transition-all"
+                            className={`w-full pl-11 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-all ${
+                              resetEmailError
+                                ? "border-red-400 focus:border-red-500 bg-red-50"
+                                : "border-gray-200 focus:border-orange-400 hover:border-orange-300"
+                            }`}
                           />
                         </div>
+                        {resetEmailError && (
+                          <motion.p
+                            initial={{ opacity: 0, y: -5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-red-600 text-xs mt-1.5 ml-1"
+                          >
+                            {resetEmailError}
+                          </motion.p>
+                        )}
                       </div>
 
                       <motion.button
@@ -578,9 +772,25 @@ const Login = () => {
                       >
                         {loading ? (
                           <>
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            <svg
+                              className="animate-spin h-5 w-5 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
                             </svg>
                             <span>Sending...</span>
                           </>
@@ -614,7 +824,9 @@ const Login = () => {
                               inputMode="numeric"
                               maxLength="1"
                               value={digit}
-                              onChange={(e) => handleOtpChange(index, e.target.value)}
+                              onChange={(e) =>
+                                handleOtpChange(index, e.target.value)
+                              }
                               onKeyDown={(e) => handleOtpKeyDown(index, e)}
                               onPaste={index === 0 ? handleOtpPaste : undefined}
                               className="w-10 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none transition-all hover:border-orange-300"
@@ -627,7 +839,10 @@ const Login = () => {
                       <div className="text-center">
                         {resendTimer > 0 ? (
                           <p className="text-xs text-gray-600">
-                            Resend OTP in <span className="font-bold text-orange-600">{resendTimer}s</span>
+                            Resend OTP in{" "}
+                            <span className="font-bold text-orange-600">
+                              {resendTimer}s
+                            </span>
                           </p>
                         ) : (
                           <button
@@ -645,14 +860,30 @@ const Login = () => {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         type="submit"
-                        disabled={loading || otp.join('').length !== 6}
+                        disabled={loading || otp.join("").length !== 6}
                         className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                       >
                         {loading ? (
                           <>
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            <svg
+                              className="animate-spin h-5 w-5 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
                             </svg>
                             <span>Verifying...</span>
                           </>
@@ -663,7 +894,11 @@ const Login = () => {
 
                       <button
                         type="button"
-                        onClick={() => setResetStep(1)}
+                        onClick={() => {
+                          setResetStep(1);
+                          setOtp(["", "", "", "", "", ""]);
+                          setModalError("");
+                        }}
                         className="w-full text-gray-600 hover:text-gray-800 font-semibold transition-colors text-sm"
                       >
                         ← Back to email
@@ -692,9 +927,21 @@ const Login = () => {
                           <input
                             type={showNewPassword ? "text" : "password"}
                             value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
+                            onChange={(e) => {
+                              setNewPassword(e.target.value);
+                              if (passwordErrors.newPassword) {
+                                setPasswordErrors((prev) => ({
+                                  ...prev,
+                                  newPassword: "",
+                                }));
+                              }
+                            }}
                             placeholder="Enter new password"
-                            className="w-full pl-11 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-400 hover:border-orange-300 transition-all"
+                            className={`w-full pl-11 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-all ${
+                              passwordErrors.newPassword
+                                ? "border-red-400 focus:border-red-500 bg-red-50"
+                                : "border-gray-200 focus:border-orange-400 hover:border-orange-300"
+                            }`}
                           />
                           <button
                             type="button"
@@ -708,8 +955,18 @@ const Login = () => {
                             )}
                           </button>
                         </div>
+                        {passwordErrors.newPassword && (
+                          <motion.p
+                            initial={{ opacity: 0, y: -5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-red-600 text-xs mt-1.5 ml-1"
+                          >
+                            {passwordErrors.newPassword}
+                          </motion.p>
+                        )}
                         <p className="text-xs text-gray-500 mt-1 ml-1">
-                          8+ chars with uppercase, lowercase, number & special char
+                          8+ chars with uppercase, lowercase, number & special
+                          char
                         </p>
                       </div>
 
@@ -724,13 +981,27 @@ const Login = () => {
                           <input
                             type={showConfirmPassword ? "text" : "password"}
                             value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            onChange={(e) => {
+                              setConfirmPassword(e.target.value);
+                              if (passwordErrors.confirmPassword) {
+                                setPasswordErrors((prev) => ({
+                                  ...prev,
+                                  confirmPassword: "",
+                                }));
+                              }
+                            }}
                             placeholder="Confirm new password"
-                            className="w-full pl-11 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-400 hover:border-orange-300 transition-all"
+                            className={`w-full pl-11 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-all ${
+                              passwordErrors.confirmPassword
+                                ? "border-red-400 focus:border-red-500 bg-red-50"
+                                : "border-gray-200 focus:border-orange-400 hover:border-orange-300"
+                            }`}
                           />
                           <button
                             type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            onClick={() =>
+                              setShowConfirmPassword(!showConfirmPassword)
+                            }
                             className="absolute inset-y-0 right-0 pr-4 flex items-center"
                           >
                             {showConfirmPassword ? (
@@ -740,6 +1011,15 @@ const Login = () => {
                             )}
                           </button>
                         </div>
+                        {passwordErrors.confirmPassword && (
+                          <motion.p
+                            initial={{ opacity: 0, y: -5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-red-600 text-xs mt-1.5 ml-1"
+                          >
+                            {passwordErrors.confirmPassword}
+                          </motion.p>
+                        )}
                       </div>
 
                       <motion.button
@@ -751,9 +1031,25 @@ const Login = () => {
                       >
                         {loading ? (
                           <>
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            <svg
+                              className="animate-spin h-5 w-5 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
                             </svg>
                             <span>Resetting...</span>
                           </>
@@ -776,17 +1072,29 @@ const Login = () => {
       {/* Animations CSS */}
       <style jsx>{`
         @keyframes blob {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          25% { transform: translate(20px, -20px) scale(1.1); }
-          50% { transform: translate(-20px, 20px) scale(0.9); }
-          75% { transform: translate(20px, 20px) scale(1.05); }
+          0%,
+          100% {
+            transform: translate(0, 0) scale(1);
+          }
+          25% {
+            transform: translate(20px, -20px) scale(1.1);
+          }
+          50% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+          75% {
+            transform: translate(20px, 20px) scale(1.05);
+          }
         }
-        
         @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-20px) rotate(5deg); }
+          0%,
+          100% {
+            transform: translateY(0px) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-20px) rotate(5deg);
+          }
         }
-        
         .animate-blob {
           animation: blob 7s infinite;
         }
@@ -796,7 +1104,6 @@ const Login = () => {
         .animation-delay-4000 {
           animation-delay: 4s;
         }
-        
         .animate-float {
           animation: float 6s ease-in-out infinite;
         }

@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Package,
   ShoppingBag,
   TrendingUp,
   LogOut,
@@ -12,21 +11,41 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import AddMenu from "../components/admin-components/add_menu.jsx";
 import AddCategory from "../components/admin-components/add_category.jsx";
 import ProductComponent from "../components/admin-components/add_product.jsx";
 
 const Admin = () => {
+  const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState("catalog");
   const [activeCatalogTab, setActiveCatalogTab] = useState("product");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // DUMMY DATA - Replace with actual admin data
-  const admin = {
-    name: "Admin",
-    profileImage: null, // Set to null for default avatar, or add image URL
-  };
+  // Real auth state from localStorage
+  const [admin, setAdmin] = useState({ name: "", profile_photo: null });
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
+
+    // If not logged in redirect to login
+    if (!token || !storedUser) {
+      navigate("/login");
+      return;
+    }
+
+    const user = JSON.parse(storedUser);
+
+    // If logged in but not admin redirect to home
+    if (user.role !== "admin") {
+      navigate("/");
+      return;
+    }
+
+    setAdmin(user);
+  }, [navigate]);
 
   const navItems = [
     { id: "catalog", name: "Items", icon: LayoutGrid },
@@ -43,9 +62,11 @@ const Admin = () => {
     { id: "categorize", name: "Categorize" },
   ];
 
+  // Handle logout
   const handleLogout = () => {
-    // DUMMY ACTION - Replace with actual logout logic
-    console.log("Admin logout clicked");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
   };
 
   const handleNavClick = (itemId) => {
@@ -53,11 +74,12 @@ const Admin = () => {
     if (itemId === "catalog") {
       setActiveCatalogTab("product");
     }
-    setIsMobileMenuOpen(false); // Close mobile menu after selection
+    setIsMobileMenuOpen(false);
   };
 
   // Get admin initials for avatar
   const getAdminInitials = () => {
+    if (!admin.name) return "A";
     return admin.name
       .split(" ")
       .map((n) => n[0])
@@ -101,7 +123,6 @@ const Admin = () => {
         {/* Logo Section */}
         <div className="p-4 sm:p-6 border-b border-gray-700">
           <div className="flex items-center space-x-3 mb-4">
-            {/* Logo without animation */}
             <div className="relative h-10 w-10 sm:h-12 sm:w-12">
               <div className="relative bg-white rounded-full p-0.5 shadow-lg h-full w-full flex items-center justify-center">
                 <img
@@ -118,10 +139,10 @@ const Admin = () => {
 
           {/* Admin Profile */}
           <div className="flex flex-col items-center mt-4 sm:mt-6">
-            {admin.profileImage ? (
+            {admin.profile_photo ? (
               <motion.img
                 whileHover={{ scale: 1.05 }}
-                src={admin.profileImage}
+                src={admin.profile_photo}
                 alt={admin.name}
                 className="h-16 w-16 sm:h-20 sm:w-20 rounded-full object-cover border-4 border-orange-400 shadow-lg"
               />
@@ -135,9 +156,14 @@ const Admin = () => {
                 </span>
               </motion.div>
             )}
-            <p className="mt-2 sm:mt-3 text-xs sm:text-sm font-semibold text-gray-300">
-              {admin.name}
+            {/* Admin Name */}
+            <p className="mt-2 sm:mt-3 text-sm sm:text-base font-bold text-white">
+              {admin.name || "Admin"}
             </p>
+            {/* Admin Role Badge */}
+            <span className="mt-1 text-xs font-semibold px-3 py-0.5 rounded-full bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-sm">
+              Administrator
+            </span>
           </div>
         </div>
 
@@ -205,7 +231,7 @@ const Admin = () => {
             </p>
           </motion.div>
 
-          {/* Catalog Tabs - Only show when Catalog is active */}
+          {/* Catalog Tabs */}
           {activeNav === "catalog" && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
@@ -239,7 +265,6 @@ const Admin = () => {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="bg-white rounded-lg shadow-md p-4 sm:p-6 min-h-[400px] sm:min-h-[600px]"
           >
-            {/* Catalog Components */}
             {activeNav === "catalog" && activeCatalogTab === "menu" && (
               <AddMenu />
             )}
@@ -250,7 +275,6 @@ const Admin = () => {
               <ProductComponent />
             )}
 
-            {/* Other Nav Options - Placeholder for non-catalog sections */}
             {activeNav !== "catalog" && (
               <div className="flex items-center justify-center h-full">
                 <p className="text-gray-500 text-base sm:text-lg text-center px-4">

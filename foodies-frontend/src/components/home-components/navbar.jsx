@@ -49,7 +49,7 @@ const Navbar = () => {
 
   // Handle sign in — navigate to signup page
   const handleSignIn = () => {
-    navigate("/signup");
+    navigate("/login");
   };
 
   return (
