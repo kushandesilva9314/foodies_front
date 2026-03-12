@@ -66,7 +66,7 @@ const Signup = () => {
       newErrors.email = "Email address is required";
     } else if (
       !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(
-        formData.email.trim()
+        formData.email.trim(),
       )
     ) {
       newErrors.email = "Please enter a valid email address";
@@ -76,9 +76,9 @@ const Signup = () => {
       newErrors.mobile = "Mobile number is required";
     } else if (!/^[0-9]{10}$/.test(formData.mobile.replace(/\s/g, ""))) {
       newErrors.mobile = "Mobile number must be exactly 10 digits";
-    }  else if (!/^[0789]/.test(formData.mobile.replace(/\s/g, ""))) {
-  newErrors.mobile = "Mobile number must start with 0, 7, 8, or 9";
-}
+    } else if (!/^[0789]/.test(formData.mobile.replace(/\s/g, ""))) {
+      newErrors.mobile = "Mobile number must start with 0, 7, 8, or 9";
+    }
 
     if (!formData.password) {
       newErrors.password = "Password is required";
@@ -87,9 +87,11 @@ const Signup = () => {
     } else if (formData.password.length > 128) {
       newErrors.password = "Password must not exceed 128 characters";
     } else if (!/(?=.*[a-z])/.test(formData.password)) {
-      newErrors.password = "Password must contain at least one lowercase letter";
+      newErrors.password =
+        "Password must contain at least one lowercase letter";
     } else if (!/(?=.*[A-Z])/.test(formData.password)) {
-      newErrors.password = "Password must contain at least one uppercase letter";
+      newErrors.password =
+        "Password must contain at least one uppercase letter";
     } else if (!/(?=.*\d)/.test(formData.password)) {
       newErrors.password = "Password must contain at least one number";
     } else if (!/(?=.*[@$!%*?&])/.test(formData.password)) {
@@ -182,7 +184,6 @@ const Signup = () => {
     }
   };
 
-  // Handle OTP verification
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
 
@@ -201,9 +202,11 @@ const Signup = () => {
         otp: otpValue,
       });
 
-      // Store token and user in localStorage
-      localStorage.setItem("token", data.data.token);
+      // Store both tokens
+      localStorage.setItem("token", data.data.accessToken);
       localStorage.setItem("user", JSON.stringify(data.data.user));
+      localStorage.setItem("rememberMe", "false");
+      sessionStorage.setItem("sessionActive", "true");
 
       navigate("/");
     } catch (error) {
@@ -242,15 +245,33 @@ const Signup = () => {
       {/* Food Icons Pattern */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-10 left-10 text-6xl animate-float">🍕</div>
-        <div className="absolute top-20 right-20 text-5xl animate-float-delay-1">🍔</div>
-        <div className="absolute bottom-32 left-20 text-7xl animate-float-delay-2">🍜</div>
-        <div className="absolute bottom-20 right-32 text-6xl animate-float-delay-3">🍰</div>
-        <div className="absolute top-1/3 left-1/4 text-5xl animate-float-delay-4">🥗</div>
-        <div className="absolute top-2/3 right-1/4 text-6xl animate-float">🍱</div>
-        <div className="absolute top-1/2 left-10 text-5xl animate-float-delay-1">🌮</div>
-        <div className="absolute bottom-1/3 right-10 text-7xl animate-float-delay-2">🍣</div>
-        <div className="absolute top-40 left-1/3 text-4xl animate-float-delay-3">🥘</div>
-        <div className="absolute bottom-40 right-1/3 text-5xl animate-float-delay-4">🍝</div>
+        <div className="absolute top-20 right-20 text-5xl animate-float-delay-1">
+          🍔
+        </div>
+        <div className="absolute bottom-32 left-20 text-7xl animate-float-delay-2">
+          🍜
+        </div>
+        <div className="absolute bottom-20 right-32 text-6xl animate-float-delay-3">
+          🍰
+        </div>
+        <div className="absolute top-1/3 left-1/4 text-5xl animate-float-delay-4">
+          🥗
+        </div>
+        <div className="absolute top-2/3 right-1/4 text-6xl animate-float">
+          🍱
+        </div>
+        <div className="absolute top-1/2 left-10 text-5xl animate-float-delay-1">
+          🌮
+        </div>
+        <div className="absolute bottom-1/3 right-10 text-7xl animate-float-delay-2">
+          🍣
+        </div>
+        <div className="absolute top-40 left-1/3 text-4xl animate-float-delay-3">
+          🥘
+        </div>
+        <div className="absolute bottom-40 right-1/3 text-5xl animate-float-delay-4">
+          🍝
+        </div>
       </div>
 
       {/* Gradient Overlay Blobs */}
@@ -517,7 +538,9 @@ const Signup = () => {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                       className="absolute inset-y-0 right-0 pr-4 flex items-center"
                     >
                       {showConfirmPassword ? (
@@ -548,9 +571,25 @@ const Signup = () => {
                 >
                   {loading ? (
                     <>
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <svg
+                        className="animate-spin h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
                       </svg>
                       <span>Sending OTP...</span>
                     </>
@@ -626,9 +665,25 @@ const Signup = () => {
                 >
                   {loading ? (
                     <>
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <svg
+                        className="animate-spin h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
                       </svg>
                       <span>Verifying...</span>
                     </>
@@ -713,27 +768,64 @@ const Signup = () => {
       </motion.div>
 
       <TermsOfService isOpen={showTOS} onClose={() => setShowTOS(false)} />
-      <PrivacyPolicy isOpen={showPrivacy} onClose={() => setShowPrivacy(false)} />
+      <PrivacyPolicy
+        isOpen={showPrivacy}
+        onClose={() => setShowPrivacy(false)}
+      />
 
       <style jsx>{`
         @keyframes blob {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          25% { transform: translate(20px, -20px) scale(1.1); }
-          50% { transform: translate(-20px, 20px) scale(0.9); }
-          75% { transform: translate(20px, 20px) scale(1.05); }
+          0%,
+          100% {
+            transform: translate(0, 0) scale(1);
+          }
+          25% {
+            transform: translate(20px, -20px) scale(1.1);
+          }
+          50% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+          75% {
+            transform: translate(20px, 20px) scale(1.05);
+          }
         }
         @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-20px) rotate(5deg); }
+          0%,
+          100% {
+            transform: translateY(0px) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-20px) rotate(5deg);
+          }
         }
-        .animate-blob { animation: blob 7s infinite; }
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
-        .animate-float { animation: float 6s ease-in-out infinite; }
-        .animate-float-delay-1 { animation: float 7s ease-in-out infinite; animation-delay: 1s; }
-        .animate-float-delay-2 { animation: float 8s ease-in-out infinite; animation-delay: 2s; }
-        .animate-float-delay-3 { animation: float 6.5s ease-in-out infinite; animation-delay: 3s; }
-        .animate-float-delay-4 { animation: float 7.5s ease-in-out infinite; animation-delay: 4s; }
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+        .animate-float-delay-1 {
+          animation: float 7s ease-in-out infinite;
+          animation-delay: 1s;
+        }
+        .animate-float-delay-2 {
+          animation: float 8s ease-in-out infinite;
+          animation-delay: 2s;
+        }
+        .animate-float-delay-3 {
+          animation: float 6.5s ease-in-out infinite;
+          animation-delay: 3s;
+        }
+        .animate-float-delay-4 {
+          animation: float 7.5s ease-in-out infinite;
+          animation-delay: 4s;
+        }
       `}</style>
     </div>
   );

@@ -87,33 +87,33 @@ const Login = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle login submit
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
+  e.preventDefault();
+  if (!validateForm()) return;
 
-    setLoading(true);
-    setFormError("");
+  setLoading(true);
+  setFormError("");
 
-    try {
-      const data = await loginUser({
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-      });
+  try {
+    const data = await loginUser({
+      email: formData.email.trim().toLowerCase(),
+      password: formData.password,
+      rememberMe: formData.rememberMe,
+    });
 
-      // Store token and user
-      localStorage.setItem("token", data.data.token);
-      localStorage.setItem("user", JSON.stringify(data.data.user));
+    // No more refreshToken in localStorage
+    localStorage.setItem("token", data.data.accessToken);
+    localStorage.setItem("user", JSON.stringify(data.data.user));
+    localStorage.setItem("rememberMe", formData.rememberMe.toString());
+    sessionStorage.setItem("sessionActive", "true");
 
-      // Redirect based on role
-      navigate(data.data.redirectTo);
-    } catch (error) {
-      setFormError(error.message || "Login failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    navigate(data.data.redirectTo);
+  } catch (error) {
+    setFormError(error.message || "Login failed. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
   // Start resend timer
   const startResendTimer = () => {
     setResendTimer(60);

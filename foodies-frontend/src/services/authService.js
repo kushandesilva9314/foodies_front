@@ -32,6 +32,7 @@ export const verifyOTP = async ({ email, otp }) => {
     const response = await fetch(`${API_URL}/auth/verify-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', 
       body: JSON.stringify({ email, otp }),
     });
 
@@ -75,12 +76,13 @@ export const resendOTP = async ({ email }) => {
 /**
  * Login user
  */
-export const loginUser = async ({ email, password }) => {
+export const loginUser = async ({ email, password, rememberMe }) => {
   try {
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      credentials: 'include', 
+      body: JSON.stringify({ email, password, rememberMe }),
     });
 
     const data = await response.json();
@@ -189,5 +191,48 @@ export const resendResetOTP = async ({ email }) => {
   } catch (error) {
     console.error('Resend reset OTP error:', error);
     throw error;
+  }
+};
+
+/**
+ * Refresh access token
+ */
+export const refreshToken = async () => {
+  const response = await fetch(`${API_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', 
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("rememberMe");
+    throw new Error(data.message || 'Session expired');
+  }
+
+  // Only store accessToken — no more refreshToken in localStorage
+  localStorage.setItem("token", data.data.accessToken);
+  localStorage.setItem("user", JSON.stringify(data.data.user));
+
+  return data;
+};
+
+export const logoutUser = async () => {
+  try {
+    await fetch(`${API_URL}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', 
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+  } finally {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("rememberMe");
+    sessionStorage.removeItem("sessionActive");
   }
 };

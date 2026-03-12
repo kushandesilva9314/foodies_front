@@ -1,6 +1,15 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { ShoppingCart, User, Menu, X, UserCircle, History, Package, LogOut } from "lucide-react";
+import {
+  ShoppingCart,
+  User,
+  Menu,
+  X,
+  UserCircle,
+  History,
+  Package,
+  LogOut,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
 
@@ -10,11 +19,11 @@ const Navbar = () => {
   const [activeLink, setActiveLink] = useState("home");
 
   // Real auth state from localStorage
-  const token = localStorage.getItem("token");
-  const storedUser = localStorage.getItem("user");
+ const token = localStorage.getItem("token");
+const storedUser = localStorage.getItem("user");
   const [isLoggedIn, setIsLoggedIn] = useState(!!token);
   const [user, setUser] = useState(
-    storedUser ? JSON.parse(storedUser) : { name: "", profile_photo: null }
+    storedUser ? JSON.parse(storedUser) : { name: "", profile_photo: null },
   );
 
   const navLinks = [
@@ -39,14 +48,14 @@ const Navbar = () => {
   };
 
   // Handle logout
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setIsLoggedIn(false);
-    setUser({ name: "", profile_photo: null });
-    navigate("/login");
-  };
-
+const handleLogout = async () => {
+  const { logoutUser } = await import("../../services/authService");
+  await logoutUser();
+  // Navbar only:
+  setIsLoggedIn(false);
+  setUser({ name: "", profile_photo: null });
+  navigate("/login");
+};
   // Handle sign in — navigate to signup page
   const handleSignIn = () => {
     navigate("/login");
@@ -162,7 +171,10 @@ const Navbar = () => {
                     className="p-2 hover:bg-orange-100 rounded-full transition-colors group"
                     title="Profile"
                   >
-                    <UserCircle size={20} className="text-gray-600 group-hover:text-orange-600" />
+                    <UserCircle
+                      size={20}
+                      className="text-gray-600 group-hover:text-orange-600"
+                    />
                   </motion.button>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -171,7 +183,10 @@ const Navbar = () => {
                     className="p-2 hover:bg-orange-100 rounded-full transition-colors group"
                     title="Orders"
                   >
-                    <Package size={20} className="text-gray-600 group-hover:text-orange-600" />
+                    <Package
+                      size={20}
+                      className="text-gray-600 group-hover:text-orange-600"
+                    />
                   </motion.button>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -180,7 +195,10 @@ const Navbar = () => {
                     className="p-2 hover:bg-orange-100 rounded-full transition-colors group"
                     title="History"
                   >
-                    <History size={20} className="text-gray-600 group-hover:text-orange-600" />
+                    <History
+                      size={20}
+                      className="text-gray-600 group-hover:text-orange-600"
+                    />
                   </motion.button>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -189,7 +207,10 @@ const Navbar = () => {
                     className="p-2 hover:bg-red-100 rounded-full transition-colors group"
                     title="Logout"
                   >
-                    <LogOut size={20} className="text-gray-600 group-hover:text-red-600" />
+                    <LogOut
+                      size={20}
+                      className="text-gray-600 group-hover:text-red-600"
+                    />
                   </motion.button>
                 </div>
               </div>
@@ -262,9 +283,7 @@ const Navbar = () => {
 
             {isLoggedIn ? (
               <>
-                <motion.div
-                  className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center space-x-3"
-                >
+                <motion.div className="w-full bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center space-x-3">
                   {user.profile_photo ? (
                     <img
                       src={user.profile_photo}
@@ -279,34 +298,51 @@ const Navbar = () => {
                     </div>
                   )}
                   <div className="flex flex-col items-start flex-grow">
-                    <span className="font-semibold text-gray-800">{user.name}</span>
+                    <span className="font-semibold text-gray-800">
+                      {user.name}
+                    </span>
                   </div>
                 </motion.div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <motion.button
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => { navigate("/profile"); setIsOpen(false); }}
+                    onClick={() => {
+                      navigate("/profile");
+                      setIsOpen(false);
+                    }}
                     className="bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:border-orange-300 hover:bg-orange-50 transition-all"
                   >
                     <UserCircle size={18} className="text-orange-600" />
-                    <span className="text-sm font-medium text-gray-700">Profile</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      Profile
+                    </span>
                   </motion.button>
                   <motion.button
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => { navigate("/orders"); setIsOpen(false); }}
+                    onClick={() => {
+                      navigate("/orders");
+                      setIsOpen(false);
+                    }}
                     className="bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:border-orange-300 hover:bg-orange-50 transition-all"
                   >
                     <Package size={18} className="text-orange-600" />
-                    <span className="text-sm font-medium text-gray-700">Orders</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      Orders
+                    </span>
                   </motion.button>
                   <motion.button
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => { navigate("/history"); setIsOpen(false); }}
+                    onClick={() => {
+                      navigate("/history");
+                      setIsOpen(false);
+                    }}
                     className="bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:border-orange-300 hover:bg-orange-50 transition-all"
                   >
                     <History size={18} className="text-orange-600" />
-                    <span className="text-sm font-medium text-gray-700">History</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      History
+                    </span>
                   </motion.button>
                   <motion.button
                     whileTap={{ scale: 0.98 }}
@@ -314,7 +350,9 @@ const Navbar = () => {
                     className="bg-white border-2 border-red-200 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:border-red-300 hover:bg-red-50 transition-all"
                   >
                     <LogOut size={18} className="text-red-600" />
-                    <span className="text-sm font-medium text-gray-700">Logout</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      Logout
+                    </span>
                   </motion.button>
                 </div>
               </>

@@ -63,11 +63,11 @@ const Admin = () => {
   ];
 
   // Handle logout
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
-  };
+const handleLogout = async () => {
+  const { logoutUser } = await import('../services/authService');
+  await logoutUser();
+  navigate("/login");
+};
 
   const handleNavClick = (itemId) => {
     setActiveNav(itemId);
