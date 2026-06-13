@@ -16,6 +16,7 @@ import logo from "../assets/logo.png";
 import AddMenu from "../components/admin-components/add_menu.jsx";
 import AddCategory from "../components/admin-components/add_category.jsx";
 import ProductComponent from "../components/admin-components/add_product.jsx";
+import UsersComponent from "../components/admin-components/UsersComponent.jsx";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -124,7 +125,7 @@ const handleLogout = async () => {
         <div className="p-4 sm:p-6 border-b border-gray-700">
           <div className="flex items-center space-x-3 mb-4">
             <div className="relative h-10 w-10 sm:h-12 sm:w-12">
-              <div className="relative bg-white rounded-full p-0.5 shadow-lg h-full w-full flex items-center justify-center">
+              <div onClick={() => navigate("/")} className="relative bg-white rounded-full p-0.5 shadow-lg h-full w-full flex items-center justify-center cursor-pointer">
                 <img
                   src={logo}
                   alt="Foodies Logo"
@@ -275,14 +276,9 @@ const handleLogout = async () => {
               <ProductComponent />
             )}
 
-            {activeNav !== "catalog" && (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500 text-base sm:text-lg text-center px-4">
-                  {activeNav.charAt(0).toUpperCase() + activeNav.slice(1)}{" "}
-                  component will be imported here
-                </p>
-              </div>
-            )}
+            {activeNav === "users" && <UsersComponent />}
+
+            
           </motion.div>
         </div>
       </main>

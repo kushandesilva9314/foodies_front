@@ -4,6 +4,7 @@ import Signup from "./pages/Signup.jsx";
 import Login from "./pages/Login.jsx";
 import Home from "./pages/Home.jsx";
 import Admin from "./pages/Admin.jsx";
+import { AdminRoute, GuestRoute } from "./utils/ProtectedRoute.jsx";
 
 function App() {
   const [authChecked, setAuthChecked] = useState(false);
@@ -15,30 +16,32 @@ function App() {
 
     if (token && !rememberMe && !sessionActive) {
       localStorage.removeItem("token");
-      localStorage.removeItem("refreshToken"); // ← add this
+      localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
       localStorage.removeItem("rememberMe");
     }
 
-    // Mark session as active
     if (localStorage.getItem("token")) {
       sessionStorage.setItem("sessionActive", "true");
     }
 
-    // Auth check done — allow render
     setAuthChecked(true);
   }, []);
 
-  // Don't render anything until auth check is complete
   if (!authChecked) return null;
 
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public — anyone can visit */}
         <Route path="/" element={<Home />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/admin" element={<Admin />} />
+
+        {/* Guest only — logged in users get redirected */}
+        <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+        <Route path="/signup" element={<GuestRoute><Signup /></GuestRoute>} />
+
+        {/* Admin only — must be logged in as admin */}
+        <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
       </Routes>
     </BrowserRouter>
   );

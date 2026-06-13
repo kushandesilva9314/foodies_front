@@ -19,12 +19,15 @@ const Navbar = () => {
   const [activeLink, setActiveLink] = useState("home");
 
   // Real auth state from localStorage
- const token = localStorage.getItem("token");
-const storedUser = localStorage.getItem("user");
+  const token = localStorage.getItem("token");
+  const storedUser = localStorage.getItem("user");
   const [isLoggedIn, setIsLoggedIn] = useState(!!token);
   const [user, setUser] = useState(
     storedUser ? JSON.parse(storedUser) : { name: "", profile_photo: null },
   );
+
+  const isAdmin = isLoggedIn && user.role === "admin";
+  const isCustomer = isLoggedIn && user.role !== "admin";
 
   const navLinks = [
     { name: "Home", id: "home" },
@@ -48,17 +51,22 @@ const storedUser = localStorage.getItem("user");
   };
 
   // Handle logout
-const handleLogout = async () => {
-  const { logoutUser } = await import("../../services/authService");
-  await logoutUser();
-  // Navbar only:
-  setIsLoggedIn(false);
-  setUser({ name: "", profile_photo: null });
-  navigate("/login");
-};
-  // Handle sign in — navigate to signup page
-  const handleSignIn = () => {
+  const handleLogout = async () => {
+    const { logoutUser } = await import("../../services/authService");
+    await logoutUser();
+    setIsLoggedIn(false);
+    setUser({ name: "", profile_photo: null });
     navigate("/login");
+  };
+
+  // Profile button — admin goes to /admin, customer goes to /profile
+  const handleProfileClick = () => {
+    if (isAdmin) {
+      navigate("/admin");
+    } else {
+      navigate("/profile");
+    }
+    setIsOpen(false);
   };
 
   return (
@@ -70,7 +78,8 @@ const handleLogout = async () => {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex items-center space-x-3 flex-shrink-0"
+            className="flex items-center space-x-3 flex-shrink-0 cursor-pointer"
+            onClick={() => navigate("/")}
           >
             <div className="relative h-12 w-12">
               <div className="relative bg-white rounded-full p-0.5 shadow-lg h-full w-full flex items-center justify-center">
@@ -128,23 +137,25 @@ const handleLogout = async () => {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="hidden md:flex items-center space-x-4 flex-shrink-0"
           >
-            {/* Cart Button */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="relative bg-gradient-to-r from-orange-500 to-red-600 text-white p-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300"
-            >
-              <ShoppingCart size={20} />
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white"
+            {/* Cart Button — only for customers */}
+            {isCustomer && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="relative bg-gradient-to-r from-orange-500 to-red-600 text-white p-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300"
               >
-                0
-              </motion.span>
-            </motion.button>
+                <ShoppingCart size={20} />
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white"
+                >
+                  0
+                </motion.span>
+              </motion.button>
+            )}
 
-            {/* Profile Section */}
+            {/* Profile Section — logged in */}
             {isLoggedIn ? (
               <div className="flex items-center space-x-3 bg-gray-50 px-4 py-2 rounded-full border border-gray-200">
                 {user.profile_photo ? (
@@ -163,43 +174,58 @@ const handleLogout = async () => {
                 <span className="text-sm font-semibold text-gray-800">
                   {user.name}
                 </span>
+                {isAdmin && (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gradient-to-r from-orange-500 to-red-600 text-white">
+                    Admin
+                  </span>
+                )}
                 <div className="flex items-center space-x-2 ml-2 pl-2 border-l border-gray-300">
+                  {/* Profile — admin goes to /admin, customer to /profile */}
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => navigate("/profile")}
+                    onClick={handleProfileClick}
                     className="p-2 hover:bg-orange-100 rounded-full transition-colors group"
-                    title="Profile"
+                    title={isAdmin ? "Admin Panel" : "Profile"}
                   >
                     <UserCircle
                       size={20}
                       className="text-gray-600 group-hover:text-orange-600"
                     />
                   </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => navigate("/orders")}
-                    className="p-2 hover:bg-orange-100 rounded-full transition-colors group"
-                    title="Orders"
-                  >
-                    <Package
-                      size={20}
-                      className="text-gray-600 group-hover:text-orange-600"
-                    />
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => navigate("/history")}
-                    className="p-2 hover:bg-orange-100 rounded-full transition-colors group"
-                    title="History"
-                  >
-                    <History
-                      size={20}
-                      className="text-gray-600 group-hover:text-orange-600"
-                    />
-                  </motion.button>
+
+                  {/* Orders — customers only */}
+                  {isCustomer && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => navigate("/orders")}
+                      className="p-2 hover:bg-orange-100 rounded-full transition-colors group"
+                      title="Orders"
+                    >
+                      <Package
+                        size={20}
+                        className="text-gray-600 group-hover:text-orange-600"
+                      />
+                    </motion.button>
+                  )}
+
+                  {/* History — customers only */}
+                  {isCustomer && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => navigate("/history")}
+                      className="p-2 hover:bg-orange-100 rounded-full transition-colors group"
+                      title="History"
+                    >
+                      <History
+                        size={20}
+                        className="text-gray-600 group-hover:text-orange-600"
+                      />
+                    </motion.button>
+                  )}
+
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -215,15 +241,26 @@ const handleLogout = async () => {
                 </div>
               </div>
             ) : (
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleSignIn}
-                className="flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 py-2.5 rounded-full cursor-pointer shadow-md hover:shadow-lg transition-all duration-300 font-medium"
-              >
-                <User size={18} />
-                <span>Sign In</span>
-              </motion.button>
+              /* Not logged in — Sign In + Sign Up buttons */
+              <div className="flex items-center space-x-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => navigate("/login")}
+                  className="flex items-center justify-center space-x-2 border-2 border-orange-500 text-orange-500 w-28 py-2 rounded-full cursor-pointer hover:bg-orange-50 transition-all duration-300 font-medium"
+                >
+                  <User size={18} />
+                  <span>Sign In</span>
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => navigate("/signup")}
+                  className="flex items-center justify-center space-x-2 bg-gradient-to-r from-orange-500 to-red-600 text-white w-28 py-2 rounded-full cursor-pointer shadow-md hover:shadow-lg transition-all duration-300 font-medium"
+                >
+                  <span>Sign Up</span>
+                </motion.button>
+              </div>
             )}
           </motion.div>
 
@@ -273,13 +310,16 @@ const handleLogout = async () => {
 
           {/* Mobile Cart & Profile */}
           <div className="pt-4 border-t border-gray-200 space-y-3">
-            <motion.button
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 py-3 rounded-lg flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all font-medium"
-            >
-              <ShoppingCart size={20} />
-              <span>Cart (0)</span>
-            </motion.button>
+            {/* Cart — customers only */}
+            {isCustomer && (
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 py-3 rounded-lg flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all font-medium"
+              >
+                <ShoppingCart size={20} />
+                <span>Cart (0)</span>
+              </motion.button>
+            )}
 
             {isLoggedIn ? (
               <>
@@ -301,49 +341,61 @@ const handleLogout = async () => {
                     <span className="font-semibold text-gray-800">
                       {user.name}
                     </span>
+                    {isAdmin && (
+                      <span className="text-xs text-orange-500 font-medium">
+                        Administrator
+                      </span>
+                    )}
                   </div>
                 </motion.div>
 
                 <div className="grid grid-cols-2 gap-2">
+                  {/* Profile — admin goes to /admin, customer to /profile */}
                   <motion.button
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => {
-                      navigate("/profile");
-                      setIsOpen(false);
-                    }}
+                    onClick={handleProfileClick}
                     className="bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:border-orange-300 hover:bg-orange-50 transition-all"
                   >
                     <UserCircle size={18} className="text-orange-600" />
                     <span className="text-sm font-medium text-gray-700">
-                      Profile
+                      {isAdmin ? "Admin Panel" : "Profile"}
                     </span>
                   </motion.button>
-                  <motion.button
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => {
-                      navigate("/orders");
-                      setIsOpen(false);
-                    }}
-                    className="bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:border-orange-300 hover:bg-orange-50 transition-all"
-                  >
-                    <Package size={18} className="text-orange-600" />
-                    <span className="text-sm font-medium text-gray-700">
-                      Orders
-                    </span>
-                  </motion.button>
-                  <motion.button
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => {
-                      navigate("/history");
-                      setIsOpen(false);
-                    }}
-                    className="bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:border-orange-300 hover:bg-orange-50 transition-all"
-                  >
-                    <History size={18} className="text-orange-600" />
-                    <span className="text-sm font-medium text-gray-700">
-                      History
-                    </span>
-                  </motion.button>
+
+                  {/* Orders — customers only */}
+                  {isCustomer && (
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        navigate("/orders");
+                        setIsOpen(false);
+                      }}
+                      className="bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:border-orange-300 hover:bg-orange-50 transition-all"
+                    >
+                      <Package size={18} className="text-orange-600" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Orders
+                      </span>
+                    </motion.button>
+                  )}
+
+                  {/* History — customers only */}
+                  {isCustomer && (
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        navigate("/history");
+                        setIsOpen(false);
+                      }}
+                      className="bg-white border-2 border-gray-200 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:border-orange-300 hover:bg-orange-50 transition-all"
+                    >
+                      <History size={18} className="text-orange-600" />
+                      <span className="text-sm font-medium text-gray-700">
+                        History
+                      </span>
+                    </motion.button>
+                  )}
+
                   <motion.button
                     whileTap={{ scale: 0.98 }}
                     onClick={handleLogout}
@@ -357,14 +409,30 @@ const handleLogout = async () => {
                 </div>
               </>
             ) : (
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={handleSignIn}
-                className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 py-3 rounded-lg flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all font-medium"
-              >
-                <User size={20} />
-                <span>Sign In</span>
-              </motion.button>
+              /* Not logged in — Sign In + Sign Up */
+              <div className="flex flex-col space-y-2">
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    navigate("/login");
+                    setIsOpen(false);
+                  }}
+                  className="w-full border-2 border-orange-500 text-orange-500 px-4 py-3 rounded-lg flex items-center justify-center space-x-2 hover:bg-orange-50 transition-all font-medium"
+                >
+                  <User size={20} />
+                  <span>Sign In</span>
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    navigate("/signup");
+                    setIsOpen(false);
+                  }}
+                  className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 py-3 rounded-lg flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all font-medium"
+                >
+                  <span>Sign Up</span>
+                </motion.button>
+              </div>
             )}
           </div>
         </div>

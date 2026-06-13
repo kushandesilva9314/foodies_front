@@ -9,6 +9,7 @@ import {
   EyeOff,
   ArrowRight,
   CheckCircle,
+  Home,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
@@ -280,6 +281,38 @@ const Signup = () => {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-red-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-2000"></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-4000"></div>
       </div>
+      {/* Home Button - Top Left */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+        className="absolute top-6 left-6 z-20"
+      >
+        <Link to="/">
+          <motion.div
+            whileHover={{ scale: 1.2, rotate: -10 }}
+            whileTap={{ scale: 0.9 }}
+            className="relative group"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.1, 0.3] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute inset-0 bg-gradient-to-r from-orange-200 to-red-200 rounded-full blur-md"
+            />
+            <div className="relative bg-white/80 backdrop-blur-sm text-orange-500 p-3 rounded-full shadow-md border-2 border-orange-200 hover:border-orange-300 transition-colors duration-300">
+              <Home className="w-5 h-5" />
+            </div>
+            <motion.div
+              initial={{ opacity: 0, x: -5 }}
+              whileHover={{ opacity: 1, x: 0 }}
+              className="absolute left-14 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur-sm text-orange-600 text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-md border border-orange-100"
+            >
+              Go Home
+              <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white" />
+            </motion.div>
+          </motion.div>
+        </Link>
+      </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
