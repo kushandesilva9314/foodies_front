@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Edit2, X, Upload, Image as ImageIcon } from "lucide-react";
-import { 
-  getAllMenus, 
-  createMenu, 
-  updateMenu, 
-  deleteMenu 
+import {
+  Plus,
+  Trash2,
+  Edit2,
+  X,
+  Upload,
+  Image as ImageIcon,
+  Search,
+} from "lucide-react";
+import {
+  getAllMenus,
+  createMenu,
+  updateMenu,
+  deleteMenu,
 } from "../../services/menuService";
 import { useToast } from "../../hooks/useToast";
 import ToastContainer from "../common/ToastContainer";
@@ -17,6 +25,7 @@ const AddMenu = () => {
   const [editingMenu, setEditingMenu] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Use toast hook
   const toast = useToast();
@@ -25,7 +34,7 @@ const AddMenu = () => {
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     menuId: null,
-    menuName: ""
+    menuName: "",
   });
 
   // Form state
@@ -45,82 +54,92 @@ const AddMenu = () => {
       const response = await getAllMenus();
       setMenus(response.data || []);
     } catch (error) {
-      console.error('Error fetching menus:', error);
-      toast.error('Failed to load menus. Please refresh the page.');
+      console.error("Error fetching menus:", error);
+      toast.error("Failed to load menus. Please refresh the page.");
     } finally {
       setFetchLoading(false);
     }
   };
-// Handle image upload - KEEP THE FILE OBJECT
-const handleImageChange = (e) => {
-  const file = e.target.files[0];
-  if (file && (file.type === "image/png" || file.type === "image/jpeg" || file.type === "image/jpg")) {
-    setMenuImage(file); // Store the actual File object
-    
-    // Create preview URL for display
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result);
-    };
-    reader.readAsDataURL(file);
-  } else {
-    toast.warning("Please upload a valid image (PNG, JPEG, JPG)");
-  }
-};
+
+  const filteredMenus = menus.filter((m) =>
+    m.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  // Handle image upload - KEEP THE FILE OBJECT
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (
+      file &&
+      (file.type === "image/png" ||
+        file.type === "image/jpeg" ||
+        file.type === "image/jpg")
+    ) {
+      setMenuImage(file); // Store the actual File object
+
+      // Create preview URL for display
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      toast.warning("Please upload a valid image (PNG, JPEG, JPG)");
+    }
+  };
   // Check for duplicate menu name
   const isDuplicateMenu = (name) => {
     const trimmedName = name.trim().toLowerCase();
     return menus.some(
       (menu) =>
         menu.name.toLowerCase() === trimmedName &&
-        (!editingMenu || menu.id !== editingMenu.id)
+        (!editingMenu || menu.id !== editingMenu.id),
     );
   };
 
- // Handle form submit
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  // Handle form submit
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (!menuName.trim() || !menuImage) {
-    toast.warning("Please fill in all fields");
-    return;
-  }
-
-  // Check for duplicate menu name (client-side check)
-  if (isDuplicateMenu(menuName)) {
-    toast.error(`A menu with the name "${menuName.trim()}" already exists`);
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const menuData = {
-      name: menuName.trim(),
-      image: menuImage  // Send the File object, not base64
-    };
-
-    if (editingMenu) {
-      // Update existing menu
-      const response = await updateMenu(editingMenu.id, menuData);
-      toast.success(response.message || 'Menu updated successfully!');
-      await fetchMenus();
-    } else {
-      // Create new menu
-      const response = await createMenu(menuData);
-      toast.success(response.message || 'Menu created successfully!');
-      await fetchMenus();
+    if (!menuName.trim() || !menuImage) {
+      toast.warning("Please fill in all fields");
+      return;
     }
 
-    // Reset form
-    resetForm();
-  } catch (error) {
-    console.error('Error saving menu:', error);
-    toast.error(error.message || 'Failed to save menu');
-  } finally {
-    setLoading(false);
-  }
-};
+    // Check for duplicate menu name (client-side check)
+    if (isDuplicateMenu(menuName)) {
+      toast.error(`A menu with the name "${menuName.trim()}" already exists`);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const menuData = {
+        name: menuName.trim(),
+        image: menuImage, // Send the File object, not base64
+      };
+
+      if (editingMenu) {
+        // Update existing menu
+        const response = await updateMenu(editingMenu.id, menuData);
+        toast.success(response.message || "Menu updated successfully!");
+        await fetchMenus();
+      } else {
+        // Create new menu
+        const response = await createMenu(menuData);
+        toast.success(response.message || "Menu created successfully!");
+        await fetchMenus();
+      }
+
+      // Reset form
+      resetForm();
+    } catch (error) {
+      console.error("Error saving menu:", error);
+      toast.error(error.message || "Failed to save menu");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Reset form
   const resetForm = () => {
@@ -136,7 +155,7 @@ const handleSubmit = async (e) => {
     setConfirmModal({
       isOpen: true,
       menuId: menu.id,
-      menuName: menu.name
+      menuName: menu.name,
     });
   };
 
@@ -145,7 +164,7 @@ const handleSubmit = async (e) => {
     setConfirmModal({
       isOpen: false,
       menuId: null,
-      menuName: ""
+      menuName: "",
     });
   };
 
@@ -155,12 +174,12 @@ const handleSubmit = async (e) => {
 
     try {
       const response = await deleteMenu(confirmModal.menuId);
-      toast.success(response.message || 'Menu deleted successfully!');
+      toast.success(response.message || "Menu deleted successfully!");
       await fetchMenus();
       closeDeleteModal();
     } catch (error) {
-      console.error('Error deleting menu:', error);
-      toast.error(error.message || 'Failed to delete menu');
+      console.error("Error deleting menu:", error);
+      toast.error(error.message || "Failed to delete menu");
     } finally {
       setLoading(false);
     }
@@ -200,8 +219,12 @@ const handleSubmit = async (e) => {
       {/* Header with Add Button */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Menu Management</h2>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Add and manage your restaurant menus</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
+            Menu Management
+          </h2>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
+            Add and manage your restaurant menus
+          </p>
         </div>
         {!showForm && (
           <motion.button
@@ -216,6 +239,19 @@ const handleSubmit = async (e) => {
           </motion.button>
         )}
       </div>
+
+      {!fetchLoading && menus.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by menu name..."
+            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-orange-400 focus:outline-none transition-colors text-sm"
+          />
+        </div>
+      )}
 
       {/* Add/Edit Form */}
       {showForm && (
@@ -269,7 +305,9 @@ const handleSubmit = async (e) => {
                 <label className="w-full sm:w-auto flex-shrink-0 cursor-pointer">
                   <div className="flex items-center justify-center sm:justify-start space-x-2 bg-gray-100 hover:bg-gray-200 px-4 py-2.5 sm:py-3 rounded-lg border-2 border-gray-300 transition-colors">
                     <Upload size={18} className="text-gray-600 sm:w-5 sm:h-5" />
-                    <span className="text-gray-700 font-medium text-sm sm:text-base">Choose Image</span>
+                    <span className="text-gray-700 font-medium text-sm sm:text-base">
+                      Choose Image
+                    </span>
                   </div>
                   <input
                     type="file"
@@ -301,7 +339,10 @@ const handleSubmit = async (e) => {
                   </div>
                 ) : (
                   <div className="h-20 w-20 sm:h-24 sm:w-24 mx-auto sm:mx-0 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                    <ImageIcon size={28} className="text-gray-400 sm:w-8 sm:h-8" />
+                    <ImageIcon
+                      size={28}
+                      className="text-gray-400 sm:w-8 sm:h-8"
+                    />
                   </div>
                 )}
               </div>
@@ -316,7 +357,11 @@ const handleSubmit = async (e) => {
                 disabled={loading}
                 className="w-full sm:flex-1 bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 font-medium text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Saving..." : editingMenu ? "Update Menu" : "Add Menu"}
+                {loading
+                  ? "Saving..."
+                  : editingMenu
+                    ? "Update Menu"
+                    : "Add Menu"}
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -337,7 +382,9 @@ const handleSubmit = async (e) => {
       {fetchLoading ? (
         <div className="bg-white rounded-lg shadow-md p-8 sm:p-12 text-center">
           <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-orange-500 mx-auto"></div>
-          <p className="text-gray-600 mt-4 text-sm sm:text-base">Loading menus...</p>
+          <p className="text-gray-600 mt-4 text-sm sm:text-base">
+            Loading menus...
+          </p>
         </div>
       ) : menus.length > 0 ? (
         <motion.div
@@ -351,12 +398,16 @@ const handleSubmit = async (e) => {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-orange-500 to-red-600 text-white">
                 <tr>
-                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Menu</th>
-                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-center font-semibold text-sm sm:text-base w-24 sm:w-32">Action</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">
+                    Menu
+                  </th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-center font-semibold text-sm sm:text-base w-24 sm:w-32">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {menus.map((menu, index) => (
+                {filteredMenus.map((menu, index) => (
                   <motion.tr
                     key={menu.id}
                     initial={{ opacity: 0, x: -20 }}
@@ -408,7 +459,7 @@ const handleSubmit = async (e) => {
 
           {/* Mobile Card View */}
           <div className="sm:hidden divide-y divide-gray-200">
-            {menus.map((menu, index) => (
+            {filteredMenus.map((menu, index) => (
               <motion.div
                 key={menu.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -461,7 +512,10 @@ const handleSubmit = async (e) => {
             animate={{ opacity: 1 }}
             className="bg-white rounded-lg shadow-md p-8 sm:p-12 text-center"
           >
-            <ImageIcon size={48} className="mx-auto text-gray-300 mb-4 sm:w-16 sm:h-16" />
+            <ImageIcon
+              size={48}
+              className="mx-auto text-gray-300 mb-4 sm:w-16 sm:h-16"
+            />
             <h3 className="text-lg sm:text-xl font-semibold text-gray-600 mb-2">
               No Menus Added Yet
             </h3>

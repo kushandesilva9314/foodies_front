@@ -4,6 +4,7 @@ import Signup from "./pages/Signup.jsx";
 import Login from "./pages/Login.jsx";
 import Home from "./pages/Home.jsx";
 import Admin from "./pages/Admin.jsx";
+import Profile from "./pages/profile.jsx";
 import { AdminRoute, GuestRoute } from "./utils/ProtectedRoute.jsx";
 
 function App() {
@@ -42,6 +43,9 @@ function App() {
 
         {/* Admin only — must be logged in as admin */}
         <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+
+        {/* Customer profile */}
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </BrowserRouter>
   );

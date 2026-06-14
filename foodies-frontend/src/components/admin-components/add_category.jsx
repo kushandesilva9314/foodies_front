@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Edit2, X, Upload, Image as ImageIcon } from "lucide-react";
-import { 
-  getAllCategories, 
-  createCategory, 
-  updateCategory, 
-  deleteCategory 
+import {
+  Plus,
+  Trash2,
+  Edit2,
+  X,
+  Upload,
+  Image as ImageIcon,
+  Search,
+} from "lucide-react";
+import {
+  getAllCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
 } from "../../services/categoryService";
 import { useToast } from "../../hooks/useToast";
 import ToastContainer from "../common/ToastContainer";
@@ -17,6 +25,7 @@ const AddCategory = () => {
   const [editingCategory, setEditingCategory] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Use toast hook
   const toast = useToast();
@@ -25,7 +34,7 @@ const AddCategory = () => {
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     categoryId: null,
-    categoryName: ""
+    categoryName: "",
   });
 
   // Form state
@@ -45,28 +54,38 @@ const AddCategory = () => {
       const response = await getAllCategories();
       setCategories(response.data || []);
     } catch (error) {
-      console.error('Error fetching categories:', error);
-      toast.error('Failed to load categories. Please refresh the page.');
+      console.error("Error fetching categories:", error);
+      toast.error("Failed to load categories. Please refresh the page.");
     } finally {
       setFetchLoading(false);
     }
   };
+
+  const filteredCategories = categories.filter((c) =>
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
   // Handle image upload - KEEP THE FILE OBJECT
-const handleImageChange = (e) => {
-  const file = e.target.files[0];
-  if (file && (file.type === "image/png" || file.type === "image/jpeg" || file.type === "image/jpg")) {
-    setCategoryImage(file); // Store the actual File object
-    
-    // Create preview URL for display
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result);
-    };
-    reader.readAsDataURL(file);
-  } else {
-    toast.warning("Please upload a valid image (PNG, JPEG, JPG)");
-  }
-};
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (
+      file &&
+      (file.type === "image/png" ||
+        file.type === "image/jpeg" ||
+        file.type === "image/jpg")
+    ) {
+      setCategoryImage(file); // Store the actual File object
+
+      // Create preview URL for display
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      toast.warning("Please upload a valid image (PNG, JPEG, JPG)");
+    }
+  };
 
   // Check for duplicate category name
   const isDuplicateCategory = (name) => {
@@ -74,54 +93,56 @@ const handleImageChange = (e) => {
     return categories.some(
       (category) =>
         category.name.toLowerCase() === trimmedName &&
-        (!editingCategory || category.id !== editingCategory.id)
+        (!editingCategory || category.id !== editingCategory.id),
     );
   };
 
   // Handle form submit
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (!categoryName.trim() || !categoryImage) {
-    toast.warning("Please fill in all fields");
-    return;
-  }
-
-  // Check for duplicate category name (client-side check)
-  if (isDuplicateCategory(categoryName)) {
-    toast.error(`A category with the name "${categoryName.trim()}" already exists`);
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const categoryData = {
-      name: categoryName.trim(),
-      image: categoryImage  // Send the File object, not base64
-    };
-
-    if (editingCategory) {
-      // Update existing category
-      const response = await updateCategory(editingCategory.id, categoryData);
-      toast.success(response.message || 'Category updated successfully!');
-      await fetchCategories();
-    } else {
-      // Create new category
-      const response = await createCategory(categoryData);
-      toast.success(response.message || 'Category created successfully!');
-      await fetchCategories();
+    if (!categoryName.trim() || !categoryImage) {
+      toast.warning("Please fill in all fields");
+      return;
     }
 
-    // Reset form
-    resetForm();
-  } catch (error) {
-    console.error('Error saving category:', error);
-    toast.error(error.message || 'Failed to save category');
-  } finally {
-    setLoading(false);
-  }
-};
+    // Check for duplicate category name (client-side check)
+    if (isDuplicateCategory(categoryName)) {
+      toast.error(
+        `A category with the name "${categoryName.trim()}" already exists`,
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const categoryData = {
+        name: categoryName.trim(),
+        image: categoryImage, // Send the File object, not base64
+      };
+
+      if (editingCategory) {
+        // Update existing category
+        const response = await updateCategory(editingCategory.id, categoryData);
+        toast.success(response.message || "Category updated successfully!");
+        await fetchCategories();
+      } else {
+        // Create new category
+        const response = await createCategory(categoryData);
+        toast.success(response.message || "Category created successfully!");
+        await fetchCategories();
+      }
+
+      // Reset form
+      resetForm();
+    } catch (error) {
+      console.error("Error saving category:", error);
+      toast.error(error.message || "Failed to save category");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Reset form
   const resetForm = () => {
@@ -137,7 +158,7 @@ const handleSubmit = async (e) => {
     setConfirmModal({
       isOpen: true,
       categoryId: category.id,
-      categoryName: category.name
+      categoryName: category.name,
     });
   };
 
@@ -146,7 +167,7 @@ const handleSubmit = async (e) => {
     setConfirmModal({
       isOpen: false,
       categoryId: null,
-      categoryName: ""
+      categoryName: "",
     });
   };
 
@@ -156,12 +177,12 @@ const handleSubmit = async (e) => {
 
     try {
       const response = await deleteCategory(confirmModal.categoryId);
-      toast.success(response.message || 'Category deleted successfully!');
+      toast.success(response.message || "Category deleted successfully!");
       await fetchCategories();
       closeDeleteModal();
     } catch (error) {
-      console.error('Error deleting category:', error);
-      toast.error(error.message || 'Failed to delete category');
+      console.error("Error deleting category:", error);
+      toast.error(error.message || "Failed to delete category");
     } finally {
       setLoading(false);
     }
@@ -200,12 +221,16 @@ const handleSubmit = async (e) => {
 
       {/* Rest of your component stays the same... */}
       {/* Header, Form, Table - keep everything else as is */}
-      
+
       {/* Header with Add Button */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Category Management</h2>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Add and manage your food categories</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
+            Category Management
+          </h2>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
+            Add and manage your food categories
+          </p>
         </div>
         {!showForm && (
           <motion.button
@@ -220,6 +245,19 @@ const handleSubmit = async (e) => {
           </motion.button>
         )}
       </div>
+
+      {!fetchLoading && categories.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by category name..."
+            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-orange-400 focus:outline-none transition-colors text-sm"
+          />
+        </div>
+      )}
 
       {/* Add/Edit Form - Keep your existing form code */}
       {showForm && (
@@ -274,7 +312,9 @@ const handleSubmit = async (e) => {
                 <label className="w-full sm:w-auto flex-shrink-0 cursor-pointer">
                   <div className="flex items-center justify-center sm:justify-start space-x-2 bg-gray-100 hover:bg-gray-200 px-4 py-2.5 sm:py-3 rounded-lg border-2 border-gray-300 transition-colors">
                     <Upload size={18} className="text-gray-600 sm:w-5 sm:h-5" />
-                    <span className="text-gray-700 font-medium text-sm sm:text-base">Choose Image</span>
+                    <span className="text-gray-700 font-medium text-sm sm:text-base">
+                      Choose Image
+                    </span>
                   </div>
                   <input
                     type="file"
@@ -306,7 +346,10 @@ const handleSubmit = async (e) => {
                   </div>
                 ) : (
                   <div className="h-20 w-20 sm:h-24 sm:w-24 mx-auto sm:mx-0 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                    <ImageIcon size={28} className="text-gray-400 sm:w-8 sm:h-8" />
+                    <ImageIcon
+                      size={28}
+                      className="text-gray-400 sm:w-8 sm:h-8"
+                    />
                   </div>
                 )}
               </div>
@@ -321,7 +364,11 @@ const handleSubmit = async (e) => {
                 disabled={loading}
                 className="w-full sm:flex-1 bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 font-medium text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Saving..." : editingCategory ? "Update Category" : "Add Category"}
+                {loading
+                  ? "Saving..."
+                  : editingCategory
+                    ? "Update Category"
+                    : "Add Category"}
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -342,7 +389,9 @@ const handleSubmit = async (e) => {
       {fetchLoading ? (
         <div className="bg-white rounded-lg shadow-md p-8 sm:p-12 text-center">
           <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-orange-500 mx-auto"></div>
-          <p className="text-gray-600 mt-4 text-sm sm:text-base">Loading categories...</p>
+          <p className="text-gray-600 mt-4 text-sm sm:text-base">
+            Loading categories...
+          </p>
         </div>
       ) : categories.length > 0 ? (
         <motion.div
@@ -356,12 +405,16 @@ const handleSubmit = async (e) => {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-orange-500 to-red-600 text-white">
                 <tr>
-                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Category</th>
-                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-center font-semibold text-sm sm:text-base w-24 sm:w-32">Action</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">
+                    Category
+                  </th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-center font-semibold text-sm sm:text-base w-24 sm:w-32">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {categories.map((category, index) => (
+                {filteredCategories.map((category, index) => (
                   <motion.tr
                     key={category.id}
                     initial={{ opacity: 0, x: -20 }}
@@ -413,7 +466,7 @@ const handleSubmit = async (e) => {
 
           {/* Mobile Card View */}
           <div className="sm:hidden divide-y divide-gray-200">
-            {categories.map((category, index) => (
+            {filteredCategories.map((category, index) => (
               <motion.div
                 key={category.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -466,7 +519,10 @@ const handleSubmit = async (e) => {
             animate={{ opacity: 1 }}
             className="bg-white rounded-lg shadow-md p-8 sm:p-12 text-center"
           >
-            <ImageIcon size={48} className="mx-auto text-gray-300 mb-4 sm:w-16 sm:h-16" />
+            <ImageIcon
+              size={48}
+              className="mx-auto text-gray-300 mb-4 sm:w-16 sm:h-16"
+            />
             <h3 className="text-lg sm:text-xl font-semibold text-gray-600 mb-2">
               No Categories Added Yet
             </h3>

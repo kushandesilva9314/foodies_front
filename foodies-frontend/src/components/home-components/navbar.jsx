@@ -13,6 +13,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
 
+
 const Navbar = () => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -33,8 +34,8 @@ const Navbar = () => {
     { name: "Home", id: "home" },
     { name: "Menus", id: "menus" },
     { name: "Food", id: "food" },
-    { name: "About", id: "about" },
-    { name: "Contact", id: "contact" },
+    { name: "Services", id: "services" },
+    { name: "Reviews", id: "reviews" },
   ];
 
   const toggleMenu = () => setIsOpen(!isOpen);

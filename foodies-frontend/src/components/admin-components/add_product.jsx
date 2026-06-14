@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Edit2, X, Upload, Image as ImageIcon } from "lucide-react";
-import { 
-  getAllProducts, 
-  createProduct, 
-  updateProduct, 
-  deleteProduct 
+import {
+  Plus,
+  Trash2,
+  Edit2,
+  X,
+  Upload,
+  Image as ImageIcon,
+  Search,
+} from "lucide-react";
+import {
+  getAllProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
 } from "../../services/productService";
 import { getAllMenus } from "../../services/menuService";
 import { getAllCategories } from "../../services/categoryService";
@@ -21,6 +29,7 @@ const AddProduct = () => {
   const [editingProduct, setEditingProduct] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Use toast hook
   const toast = useToast();
@@ -29,7 +38,7 @@ const AddProduct = () => {
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     productId: null,
-    productName: ""
+    productName: "",
   });
 
   // Form state
@@ -48,7 +57,7 @@ const AddProduct = () => {
   // Calculate discounted price
   const calculateDiscountedPrice = (originalPrice, discountPercent) => {
     if (!discountPercent || discountPercent === 0) return originalPrice;
-    return originalPrice - (originalPrice * discountPercent / 100);
+    return originalPrice - (originalPrice * discountPercent) / 100;
   };
 
   // Get display price for a product
@@ -58,13 +67,13 @@ const AddProduct = () => {
       return {
         original: originalPrice,
         discounted: calculateDiscountedPrice(originalPrice, product.discount),
-        hasDiscount: true
+        hasDiscount: true,
       };
     }
     return {
       original: originalPrice,
       discounted: originalPrice,
-      hasDiscount: false
+      hasDiscount: false,
     };
   };
 
@@ -77,30 +86,41 @@ const AddProduct = () => {
   const fetchAllData = async () => {
     try {
       setFetchLoading(true);
-      
+
       const [productsRes, menusRes, categoriesRes] = await Promise.all([
         getAllProducts(),
         getAllMenus(),
-        getAllCategories()
+        getAllCategories(),
       ]);
-      
+
       setProducts(productsRes.data || []);
       setMenus(menusRes.data || []);
       setCategories(categoriesRes.data || []);
     } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load data. Please refresh the page.');
+      console.error("Error fetching data:", error);
+      toast.error("Failed to load data. Please refresh the page.");
     } finally {
       setFetchLoading(false);
     }
   };
 
+  const filteredProducts = products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.item_no.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
   // Handle image upload - KEEP THE FILE OBJECT
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file && (file.type === "image/png" || file.type === "image/jpeg" || file.type === "image/jpg")) {
+    if (
+      file &&
+      (file.type === "image/png" ||
+        file.type === "image/jpeg" ||
+        file.type === "image/jpg")
+    ) {
       setProductImage(file);
-      
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
@@ -125,7 +145,7 @@ const AddProduct = () => {
     return products.some(
       (product) =>
         product.item_no.toLowerCase() === trimmedItemNo &&
-        (!editingProduct || product.id !== editingProduct.id)
+        (!editingProduct || product.id !== editingProduct.id),
     );
   };
 
@@ -140,7 +160,12 @@ const AddProduct = () => {
       return;
     }
 
-    if (!itemNo.trim() || !productName.trim() || !description.trim() || !price) {
+    if (
+      !itemNo.trim() ||
+      !productName.trim() ||
+      !description.trim() ||
+      !price
+    ) {
       toast.warning("Please fill in all required fields");
       return;
     }
@@ -155,7 +180,11 @@ const AddProduct = () => {
       return;
     }
 
-    if (isNaN(discount) || parseFloat(discount) < 0 || parseFloat(discount) > 100) {
+    if (
+      isNaN(discount) ||
+      parseFloat(discount) < 0 ||
+      parseFloat(discount) > 100
+    ) {
       toast.error("Discount must be between 0 and 100");
       return;
     }
@@ -181,22 +210,22 @@ const AddProduct = () => {
       if (editingProduct) {
         productData.featured = featured;
         productData.discount = parseFloat(discount);
-        
+
         const response = await updateProduct(editingProduct.id, productData);
-        toast.success(response.message || 'Product updated successfully!');
+        toast.success(response.message || "Product updated successfully!");
         await fetchAllData();
       } else {
         // For create, image is always required and already checked above
         productData.image = productImage;
         const response = await createProduct(productData);
-        toast.success(response.message || 'Product created successfully!');
+        toast.success(response.message || "Product created successfully!");
         await fetchAllData();
       }
 
       resetForm();
     } catch (error) {
-      console.error('Error saving product:', error);
-      toast.error(error.message || 'Failed to save product');
+      console.error("Error saving product:", error);
+      toast.error(error.message || "Failed to save product");
     } finally {
       setLoading(false);
     }
@@ -224,7 +253,7 @@ const AddProduct = () => {
     setConfirmModal({
       isOpen: true,
       productId: product.id,
-      productName: product.name
+      productName: product.name,
     });
   };
 
@@ -233,7 +262,7 @@ const AddProduct = () => {
     setConfirmModal({
       isOpen: false,
       productId: null,
-      productName: ""
+      productName: "",
     });
   };
 
@@ -243,12 +272,12 @@ const AddProduct = () => {
 
     try {
       const response = await deleteProduct(confirmModal.productId);
-      toast.success(response.message || 'Product deleted successfully!');
+      toast.success(response.message || "Product deleted successfully!");
       await fetchAllData();
       closeDeleteModal();
     } catch (error) {
-      console.error('Error deleting product:', error);
-      toast.error(error.message || 'Failed to delete product');
+      console.error("Error deleting product:", error);
+      toast.error(error.message || "Failed to delete product");
     } finally {
       setLoading(false);
     }
@@ -276,20 +305,6 @@ const AddProduct = () => {
     resetForm();
   };
 
-  // Get menu name by id
-  const getMenuName = (menuId) => {
-    if (!menuId) return "N/A";
-    const menu = menus.find((m) => m.id === menuId);
-    return menu ? menu.name : "N/A";
-  };
-
-  // Get category name by id
-  const getCategoryName = (categoryId) => {
-    if (!categoryId) return "N/A";
-    const category = categories.find((c) => c.id === categoryId);
-    return category ? category.name : "N/A";
-  };
-
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Toast Container */}
@@ -311,8 +326,12 @@ const AddProduct = () => {
       {/* Header with Add Button */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Product Management</h2>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Add and manage your products</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
+            Product Management
+          </h2>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
+            Add and manage your products
+          </p>
         </div>
         {!showForm && (
           <motion.button
@@ -327,6 +346,19 @@ const AddProduct = () => {
           </motion.button>
         )}
       </div>
+
+      {!fetchLoading && products.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by product name or item number..."
+            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-orange-400 focus:outline-none transition-colors text-sm"
+          />
+        </div>
+      )}
 
       {/* Add/Edit Form */}
       {showForm && (
@@ -391,7 +423,8 @@ const AddProduct = () => {
             {/* Product Image */}
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                Product Image * {editingProduct && "(Optional - upload only if changing image)"}
+                Product Image *{" "}
+                {editingProduct && "(Optional - upload only if changing image)"}
               </label>
               <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
                 <label className="w-full sm:w-auto flex-shrink-0 cursor-pointer">
@@ -422,7 +455,9 @@ const AddProduct = () => {
                         type="button"
                         onClick={() => {
                           setProductImage(null);
-                          setImagePreview(editingProduct ? editingProduct.image : null);
+                          setImagePreview(
+                            editingProduct ? editingProduct.image : null,
+                          );
                         }}
                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
                         disabled={loading}
@@ -433,7 +468,10 @@ const AddProduct = () => {
                   </div>
                 ) : (
                   <div className="h-20 w-20 sm:h-24 sm:w-24 mx-auto sm:mx-0 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                    <ImageIcon size={28} className="text-gray-400 sm:w-8 sm:h-8" />
+                    <ImageIcon
+                      size={28}
+                      className="text-gray-400 sm:w-8 sm:h-8"
+                    />
                   </div>
                 )}
               </div>
@@ -556,7 +594,9 @@ const AddProduct = () => {
                 <div>
                   <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                     Discount (%)
-                    {featured === "yes" && <span className="text-orange-600 ml-1">*</span>}
+                    {featured === "yes" && (
+                      <span className="text-orange-600 ml-1">*</span>
+                    )}
                   </label>
                   <input
                     type="text"
@@ -564,7 +604,10 @@ const AddProduct = () => {
                     onChange={(e) => {
                       const value = e.target.value;
                       if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                        if (value === "" || (parseFloat(value) >= 0 && parseFloat(value) <= 100)) {
+                        if (
+                          value === "" ||
+                          (parseFloat(value) >= 0 && parseFloat(value) <= 100)
+                        ) {
                           setDiscount(value);
                         }
                       }
@@ -573,13 +616,23 @@ const AddProduct = () => {
                     className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
                     disabled={featured === "no" || loading}
                   />
-                  {featured === "yes" && price && discount && parseFloat(discount) > 0 && (
-                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
-                      <p className="text-xs sm:text-sm text-green-700">
-                        💰 Final Price: <span className="font-bold">LKR {calculateDiscountedPrice(parseFloat(price), parseFloat(discount)).toFixed(2)}</span>
-                      </p>
-                    </div>
-                  )}
+                  {featured === "yes" &&
+                    price &&
+                    discount &&
+                    parseFloat(discount) > 0 && (
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                        <p className="text-xs sm:text-sm text-green-700">
+                          💰 Final Price:{" "}
+                          <span className="font-bold">
+                            LKR{" "}
+                            {calculateDiscountedPrice(
+                              parseFloat(price),
+                              parseFloat(discount),
+                            ).toFixed(2)}
+                          </span>
+                        </p>
+                      </div>
+                    )}
                   {featured === "yes" && (
                     <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       Discount is applicable when product is featured
@@ -603,7 +656,11 @@ const AddProduct = () => {
                 disabled={loading}
                 className="w-full sm:flex-1 bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 font-medium text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Saving..." : editingProduct ? "Update Product" : "Add Product"}
+                {loading
+                  ? "Saving..."
+                  : editingProduct
+                    ? "Update Product"
+                    : "Add Product"}
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -624,7 +681,9 @@ const AddProduct = () => {
       {fetchLoading ? (
         <div className="bg-white rounded-lg shadow-md p-8 sm:p-12 text-center">
           <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-orange-500 mx-auto"></div>
-          <p className="text-gray-600 mt-4 text-sm sm:text-base">Loading products...</p>
+          <p className="text-gray-600 mt-4 text-sm sm:text-base">
+            Loading products...
+          </p>
         </div>
       ) : products.length > 0 ? (
         <motion.div
@@ -638,15 +697,25 @@ const AddProduct = () => {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-orange-500 to-red-600 text-white">
                 <tr>
-                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Item No</th>
-                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Product</th>
-                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Price</th>
-                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-center font-semibold text-sm sm:text-base">Availability</th>
-                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-center font-semibold text-sm sm:text-base w-24 sm:w-32">Action</th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">
+                    Item No
+                  </th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">
+                    Product
+                  </th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">
+                    Price
+                  </th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-center font-semibold text-sm sm:text-base">
+                    Availability
+                  </th>
+                  <th className="px-4 sm:px-6 py-3 sm:py-4 text-center font-semibold text-sm sm:text-base w-24 sm:w-32">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {products.map((product, index) => {
+                {filteredProducts.map((product, index) => {
                   const priceInfo = getDisplayPrice(product);
                   return (
                     <motion.tr
@@ -657,7 +726,9 @@ const AddProduct = () => {
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
-                        <span className="font-mono text-gray-700 text-sm sm:text-base">{product.item_no}</span>
+                        <span className="font-mono text-gray-700 text-sm sm:text-base">
+                          {product.item_no}
+                        </span>
                       </td>
 
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
@@ -667,7 +738,9 @@ const AddProduct = () => {
                             alt={product.name}
                             className="h-12 w-12 sm:h-16 sm:w-16 object-cover rounded-lg border-2 border-orange-300 shadow-sm"
                           />
-                          <span className="font-semibold text-gray-800 text-sm sm:text-base">{product.name}</span>
+                          <span className="font-semibold text-gray-800 text-sm sm:text-base">
+                            {product.name}
+                          </span>
                         </div>
                       </td>
 
@@ -701,7 +774,9 @@ const AddProduct = () => {
                               : "bg-red-100 text-red-700"
                           }`}
                         >
-                          {product.availability === "yes" ? "Available" : "Unavailable"}
+                          {product.availability === "yes"
+                            ? "Available"
+                            : "Unavailable"}
                         </span>
                       </td>
 
@@ -739,7 +814,7 @@ const AddProduct = () => {
 
           {/* Mobile/Tablet Card View - SIMPLIFIED */}
           <div className="lg:hidden divide-y divide-gray-200">
-            {products.map((product, index) => (
+            {filteredProducts.map((product, index) => (
               <motion.div
                 key={product.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -755,7 +830,7 @@ const AddProduct = () => {
                     alt={product.name}
                     className="h-16 w-16 object-cover rounded-lg border-2 border-orange-300 shadow-sm flex-shrink-0"
                   />
-                  
+
                   {/* Name and Item No */}
                   <div className="flex-1 min-w-0">
                     <h4 className="font-semibold text-gray-800 text-sm sm:text-base mb-1 truncate">
@@ -802,11 +877,16 @@ const AddProduct = () => {
             animate={{ opacity: 1 }}
             className="bg-white rounded-lg shadow-md p-8 sm:p-12 text-center"
           >
-            <ImageIcon size={48} className="mx-auto text-gray-300 mb-4 sm:w-16 sm:h-16" />
+            <ImageIcon
+              size={48}
+              className="mx-auto text-gray-300 mb-4 sm:w-16 sm:h-16"
+            />
             <h3 className="text-lg sm:text-xl font-semibold text-gray-600 mb-2">
               No Products Added Yet
             </h3>
-            <p className="text-sm sm:text-base text-gray-500">Click the "Add Product" button to create your first product</p>
+            <p className="text-sm sm:text-base text-gray-500">
+              Click the "Add Product" button to create your first product
+            </p>
           </motion.div>
         )
       )}
