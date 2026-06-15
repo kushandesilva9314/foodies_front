@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
@@ -15,27 +16,41 @@ import {
   Shield,
 } from "lucide-react";
 
-// ── Dummy User Data (replace with localStorage/API later) ─────────────────────
-const DUMMY_USER = {
-  id: "193a031a-279d-4a68-b2a1-75ce55e556ea",
-  name: "Kushan De Silva",
-  email: "kushandesilvakc@gmail.com",
-  mobile: "0766186345",
-  profile_photo: null,
-  role: "customer",
-  is_verified: true,
-  is_mobile_verified: false,
+// ── Load current user from localStorage (set on login/refresh/profile update) ──
+const getStoredUser = () => {
+  try {
+    const stored = localStorage.getItem("user");
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
 };
 
 // ── Spinner ───────────────────────────────────────────────────────────────────
 const Spinner = () => (
-  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+  <svg
+    className="animate-spin h-4 w-4 text-white"
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+  >
+    <circle
+      className="opacity-25"
+      cx="12"
+      cy="12"
+      r="10"
+      stroke="currentColor"
+      strokeWidth="4"
+    />
+    <path
+      className="opacity-75"
+      fill="currentColor"
+      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    />
   </svg>
 );
 
-// ── Logout Confirm Modal ──────────────────────────────────────────────────────
+// ── Sign Out (All Devices) Confirm Modal ──────────────────────────────────────
 const LogoutModal = ({ isOpen, onClose, onConfirm, loading }) => (
   <AnimatePresence>
     {isOpen && (
@@ -55,19 +70,25 @@ const LogoutModal = ({ isOpen, onClose, onConfirm, loading }) => (
           className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
         >
           <div className="bg-gradient-to-r from-orange-500 to-red-600 p-5 relative">
-            <button onClick={onClose} className="absolute top-4 right-4 text-white hover:bg-white/20 rounded-full p-1.5 transition-colors">
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 text-white hover:bg-white/20 rounded-full p-1.5 transition-colors"
+            >
               <X className="w-4 h-4" />
             </button>
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-white/20 rounded-full">
                 <LogOut className="w-5 h-5 text-white" />
               </div>
-              <h3 className="text-lg font-bold text-white">Sign Out</h3>
+              <h3 className="text-lg font-bold text-white">
+                Sign Out from All Devices
+              </h3>
             </div>
           </div>
           <div className="p-6">
             <p className="text-gray-600 text-sm mb-6">
-              Are you sure you want to sign out of your account? You'll need to log in again to access your profile.
+              This will sign you out everywhere — including this device. You'll
+              need to log in again on every device to access your account.
             </p>
             <div className="flex gap-3">
               <motion.button
@@ -86,7 +107,14 @@ const LogoutModal = ({ isOpen, onClose, onConfirm, loading }) => (
                 disabled={loading}
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl font-semibold text-sm shadow-md transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
               >
-                {loading ? <><Spinner /><span>Signing out...</span></> : <span>Sign Out</span>}
+                {loading ? (
+                  <>
+                    <Spinner />
+                    <span>Signing out...</span>
+                  </>
+                ) : (
+                  <span>Sign Out</span>
+                )}
               </motion.button>
             </div>
           </div>
@@ -98,15 +126,28 @@ const LogoutModal = ({ isOpen, onClose, onConfirm, loading }) => (
 
 // ── Main Component ────────────────────────────────────────────────────────────
 const AccountSettings = () => {
-  const [user] = useState(DUMMY_USER);
+  const navigate = useNavigate();
+  const [user, setUser] = useState(
+    getStoredUser() || {
+      id: "",
+      name: "",
+      email: "",
+      mobile: "",
+      profile_photo: null,
+      role: "customer",
+      is_verified: true,
+      is_mobile_verified: false,
+    },
+  );
 
   // Profile form state
   const [profileForm, setProfileForm] = useState({
-    name: DUMMY_USER.name,
-    mobile: DUMMY_USER.mobile,
+    name: user.name,
+    mobile: user.mobile,
   });
   const [profilePhoto, setProfilePhoto] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(DUMMY_USER.profile_photo);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState(user.profile_photo);
   const [profileErrors, setProfileErrors] = useState({});
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState("");
@@ -133,7 +174,20 @@ const AccountSettings = () => {
   // Get initials
   const getInitials = (name) => {
     if (!name) return "U";
-    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Scroll to the mobile verification section
+  const handleVerifyNowClick = () => {
+    const target = document.getElementById("mobile-verification-section");
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
 
   // Handle profile photo change
@@ -141,6 +195,7 @@ const AccountSettings = () => {
     const file = e.target.files[0];
     if (file && ["image/png", "image/jpeg", "image/jpg"].includes(file.type)) {
       setProfilePhoto(file);
+      setPhotoRemoved(false);
       const reader = new FileReader();
       reader.onloadend = () => setPhotoPreview(reader.result);
       reader.readAsDataURL(file);
@@ -151,6 +206,7 @@ const AccountSettings = () => {
   const handleRemovePhoto = () => {
     setProfilePhoto(null);
     setPhotoPreview(null);
+    setPhotoRemoved(true);
   };
 
   // Validate profile form
@@ -186,11 +242,37 @@ const AccountSettings = () => {
     setProfileError("");
     setProfileSuccess("");
 
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 1000));
-    setProfileSuccess("Profile updated successfully!");
-    setProfileLoading(false);
-    setTimeout(() => setProfileSuccess(""), 4000);
+    try {
+      const { updateProfile } = await import("../../services/authService");
+
+      const result = await updateProfile({
+        name: profileForm.name.trim(),
+        mobile: profileForm.mobile.replace(/\s/g, ""),
+        profilePhoto, // File object, or null if unchanged
+        removePhoto: photoRemoved, // true if user removed an existing photo
+      });
+
+      const updatedUser = result?.data?.user;
+      if (updatedUser) {
+        setUser(updatedUser);
+        setProfileForm({ name: updatedUser.name, mobile: updatedUser.mobile });
+        setPhotoPreview(updatedUser.profile_photo);
+      }
+
+      setProfilePhoto(null);
+      setPhotoRemoved(false);
+      setProfileSuccess(result?.message || "Profile updated successfully!");
+    } catch (error) {
+      setProfileError(
+        error.message || "Failed to update profile. Please try again.",
+      );
+    } finally {
+      setProfileLoading(false);
+      setTimeout(() => {
+        setProfileSuccess("");
+        setProfileError("");
+      }, 4000);
+    }
   };
 
   // Validate password form
@@ -212,7 +294,8 @@ const AccountSettings = () => {
     } else if (!/(?=.*\d)/.test(passwordForm.newPassword)) {
       errors.newPassword = "Password must contain a number";
     } else if (!/(?=.*[@$!%*?&])/.test(passwordForm.newPassword)) {
-      errors.newPassword = "Password must contain a special character (@$!%*?&)";
+      errors.newPassword =
+        "Password must contain a special character (@$!%*?&)";
     }
     if (!passwordForm.confirmPassword) {
       errors.confirmPassword = "Please confirm your new password";
@@ -222,7 +305,6 @@ const AccountSettings = () => {
     setPasswordErrors(errors);
     return Object.keys(errors).length === 0;
   };
-
   // Handle password submit
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
@@ -231,21 +313,46 @@ const AccountSettings = () => {
     setPasswordError("");
     setPasswordSuccess("");
 
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 1000));
-    setPasswordSuccess("Password changed successfully!");
-    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    setPasswordLoading(false);
-    setTimeout(() => setPasswordSuccess(""), 4000);
-  };
+    try {
+      const { changePassword } = await import("../../services/authService");
 
-  // Handle logout
+      const result = await changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setPasswordSuccess(result?.message || "Password changed successfully!");
+    } catch (error) {
+      setPasswordError(
+        error.message || "Failed to change password. Please try again.",
+      );
+      setPasswordForm((prev) => ({ ...prev, currentPassword: "" }));
+    } finally {
+      setPasswordLoading(false);
+      setTimeout(() => {
+        setPasswordSuccess("");
+        setPasswordError("");
+      }, 4000);
+    }
+  };
+  // Handle "Sign Out from All Devices"
   const handleLogoutConfirm = async () => {
     setLogoutLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setLogoutLoading(false);
-    setLogoutModal(false);
-    // navigate("/login") when wired up
+    try {
+      const { logoutAllDevices } = await import("../../services/authService");
+      await logoutAllDevices();
+    } catch (error) {
+      console.error("Sign out from all devices error:", error);
+    } finally {
+      setLogoutLoading(false);
+      setLogoutModal(false);
+      navigate("/login");
+    }
   };
 
   return (
@@ -260,7 +367,9 @@ const AccountSettings = () => {
 
       {/* ── Section Header ── */}
       <div>
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Account Settings</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
+          Account Settings
+        </h2>
         <p className="text-sm text-gray-500 mt-1">
           Manage your profile information and account security
         </p>
@@ -274,8 +383,12 @@ const AccountSettings = () => {
             <User className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-gray-800">Profile Information</h3>
-            <p className="text-xs text-gray-500">Update your name, mobile and profile photo</p>
+            <h3 className="text-base font-bold text-gray-800">
+              Profile Information
+            </h3>
+            <p className="text-xs text-gray-500">
+              Update your name, mobile and profile photo
+            </p>
           </div>
         </div>
 
@@ -289,7 +402,9 @@ const AccountSettings = () => {
               className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-xl"
             >
               <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-              <p className="text-sm text-green-700 font-medium">{profileSuccess}</p>
+              <p className="text-sm text-green-700 font-medium">
+                {profileSuccess}
+              </p>
             </motion.div>
           )}
           {profileError && (
@@ -374,7 +489,8 @@ const AccountSettings = () => {
                 value={profileForm.name}
                 onChange={(e) => {
                   setProfileForm((prev) => ({ ...prev, name: e.target.value }));
-                  if (profileErrors.name) setProfileErrors((prev) => ({ ...prev, name: "" }));
+                  if (profileErrors.name)
+                    setProfileErrors((prev) => ({ ...prev, name: "" }));
                 }}
                 placeholder="Enter your full name"
                 className={`w-full pl-11 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-all text-sm ${
@@ -385,7 +501,11 @@ const AccountSettings = () => {
               />
             </div>
             {profileErrors.name && (
-              <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-red-600 text-xs mt-1.5 ml-1">
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-red-600 text-xs mt-1.5 ml-1"
+              >
                 {profileErrors.name}
               </motion.p>
             )}
@@ -395,7 +515,9 @@ const AccountSettings = () => {
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
               Email Address
-              <span className="ml-2 text-xs font-normal text-gray-400">(cannot be changed)</span>
+              <span className="ml-2 text-xs font-normal text-gray-400">
+                (cannot be changed)
+              </span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -428,7 +550,8 @@ const AccountSettings = () => {
                 onChange={(e) => {
                   const value = e.target.value.replace(/\D/g, "");
                   setProfileForm((prev) => ({ ...prev, mobile: value }));
-                  if (profileErrors.mobile) setProfileErrors((prev) => ({ ...prev, mobile: "" }));
+                  if (profileErrors.mobile)
+                    setProfileErrors((prev) => ({ ...prev, mobile: "" }));
                 }}
                 placeholder="07XXXXXXXX"
                 maxLength="10"
@@ -440,21 +563,33 @@ const AccountSettings = () => {
               />
             </div>
             {profileErrors.mobile && (
-              <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-red-600 text-xs mt-1.5 ml-1">
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-red-600 text-xs mt-1.5 ml-1"
+              >
                 {profileErrors.mobile}
               </motion.p>
             )}
             {/* Mobile verification badge */}
             <div className="mt-2 flex items-center space-x-2">
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                user.is_mobile_verified
-                  ? "bg-green-100 text-green-700"
-                  : "bg-orange-100 text-orange-600"
-              }`}>
-                {user.is_mobile_verified ? "✓ Mobile Verified" : "⚠ Mobile Not Verified"}
+              <span
+                className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                  user.is_mobile_verified
+                    ? "bg-green-100 text-green-700"
+                    : "bg-orange-100 text-orange-600"
+                }`}
+              >
+                {user.is_mobile_verified
+                  ? "✓ Mobile Verified"
+                  : "⚠ Mobile Not Verified"}
               </span>
               {!user.is_mobile_verified && (
-                <button type="button" className="text-xs text-orange-500 hover:text-orange-700 font-semibold underline transition-colors">
+                <button
+                  type="button"
+                  onClick={handleVerifyNowClick}
+                  className="text-xs text-orange-500 hover:text-orange-700 font-semibold underline transition-colors"
+                >
                   Verify Now
                 </button>
               )}
@@ -469,7 +604,17 @@ const AccountSettings = () => {
             disabled={profileLoading}
             className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-gradient-to-r from-orange-500 to-red-600 text-white px-8 py-3 rounded-xl font-bold shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
-            {profileLoading ? <><Spinner /><span>Saving...</span></> : <><Save className="w-4 h-4" /><span>Save Changes</span></>}
+            {profileLoading ? (
+              <>
+                <Spinner />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Save Changes</span>
+              </>
+            )}
           </motion.button>
         </form>
       </div>
@@ -482,8 +627,12 @@ const AccountSettings = () => {
             <Lock className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-gray-800">Change Password</h3>
-            <p className="text-xs text-gray-500">Update your password to keep your account secure</p>
+            <h3 className="text-base font-bold text-gray-800">
+              Change Password
+            </h3>
+            <p className="text-xs text-gray-500">
+              Update your password to keep your account secure
+            </p>
           </div>
         </div>
 
@@ -497,7 +646,9 @@ const AccountSettings = () => {
               className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-xl"
             >
               <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-              <p className="text-sm text-green-700 font-medium">{passwordSuccess}</p>
+              <p className="text-sm text-green-700 font-medium">
+                {passwordSuccess}
+              </p>
             </motion.div>
           )}
           {passwordError && (
@@ -508,7 +659,9 @@ const AccountSettings = () => {
               className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-xl"
             >
               <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-              <p className="text-sm text-red-600 font-medium">{passwordError}</p>
+              <p className="text-sm text-red-600 font-medium">
+                {passwordError}
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -527,8 +680,15 @@ const AccountSettings = () => {
                 type={showCurrentPassword ? "text" : "password"}
                 value={passwordForm.currentPassword}
                 onChange={(e) => {
-                  setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }));
-                  if (passwordErrors.currentPassword) setPasswordErrors((prev) => ({ ...prev, currentPassword: "" }));
+                  setPasswordForm((prev) => ({
+                    ...prev,
+                    currentPassword: e.target.value,
+                  }));
+                  if (passwordErrors.currentPassword)
+                    setPasswordErrors((prev) => ({
+                      ...prev,
+                      currentPassword: "",
+                    }));
                 }}
                 placeholder="Enter current password"
                 className={`w-full pl-11 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-all text-sm ${
@@ -537,12 +697,24 @@ const AccountSettings = () => {
                     : "border-gray-200 focus:border-orange-400 hover:border-orange-300 bg-white"
                 }`}
               />
-              <button type="button" onClick={() => setShowCurrentPassword(!showCurrentPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center">
-                {showCurrentPassword ? <EyeOff className="h-5 w-5 text-gray-400 hover:text-orange-500 transition-colors" /> : <Eye className="h-5 w-5 text-gray-400 hover:text-orange-500 transition-colors" />}
+              <button
+                type="button"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center"
+              >
+                {showCurrentPassword ? (
+                  <EyeOff className="h-5 w-5 text-gray-400 hover:text-orange-500 transition-colors" />
+                ) : (
+                  <Eye className="h-5 w-5 text-gray-400 hover:text-orange-500 transition-colors" />
+                )}
               </button>
             </div>
             {passwordErrors.currentPassword && (
-              <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-red-600 text-xs mt-1.5 ml-1">
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-red-600 text-xs mt-1.5 ml-1"
+              >
                 {passwordErrors.currentPassword}
               </motion.p>
             )}
@@ -561,8 +733,12 @@ const AccountSettings = () => {
                 type={showNewPassword ? "text" : "password"}
                 value={passwordForm.newPassword}
                 onChange={(e) => {
-                  setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }));
-                  if (passwordErrors.newPassword) setPasswordErrors((prev) => ({ ...prev, newPassword: "" }));
+                  setPasswordForm((prev) => ({
+                    ...prev,
+                    newPassword: e.target.value,
+                  }));
+                  if (passwordErrors.newPassword)
+                    setPasswordErrors((prev) => ({ ...prev, newPassword: "" }));
                 }}
                 placeholder="Enter new password"
                 className={`w-full pl-11 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-all text-sm ${
@@ -571,17 +747,30 @@ const AccountSettings = () => {
                     : "border-gray-200 focus:border-orange-400 hover:border-orange-300 bg-white"
                 }`}
               />
-              <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center">
-                {showNewPassword ? <EyeOff className="h-5 w-5 text-gray-400 hover:text-orange-500 transition-colors" /> : <Eye className="h-5 w-5 text-gray-400 hover:text-orange-500 transition-colors" />}
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center"
+              >
+                {showNewPassword ? (
+                  <EyeOff className="h-5 w-5 text-gray-400 hover:text-orange-500 transition-colors" />
+                ) : (
+                  <Eye className="h-5 w-5 text-gray-400 hover:text-orange-500 transition-colors" />
+                )}
               </button>
             </div>
             {passwordErrors.newPassword && (
-              <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-red-600 text-xs mt-1.5 ml-1">
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-red-600 text-xs mt-1.5 ml-1"
+              >
                 {passwordErrors.newPassword}
               </motion.p>
             )}
             <p className="text-xs text-gray-400 mt-1.5 ml-1">
-              8+ characters with uppercase, lowercase, number & special character
+              8+ characters with uppercase, lowercase, number & special
+              character
             </p>
           </div>
 
@@ -598,8 +787,15 @@ const AccountSettings = () => {
                 type={showConfirmPassword ? "text" : "password"}
                 value={passwordForm.confirmPassword}
                 onChange={(e) => {
-                  setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }));
-                  if (passwordErrors.confirmPassword) setPasswordErrors((prev) => ({ ...prev, confirmPassword: "" }));
+                  setPasswordForm((prev) => ({
+                    ...prev,
+                    confirmPassword: e.target.value,
+                  }));
+                  if (passwordErrors.confirmPassword)
+                    setPasswordErrors((prev) => ({
+                      ...prev,
+                      confirmPassword: "",
+                    }));
                 }}
                 placeholder="Confirm new password"
                 className={`w-full pl-11 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-all text-sm ${
@@ -608,12 +804,24 @@ const AccountSettings = () => {
                     : "border-gray-200 focus:border-orange-400 hover:border-orange-300 bg-white"
                 }`}
               />
-              <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center">
-                {showConfirmPassword ? <EyeOff className="h-5 w-5 text-gray-400 hover:text-orange-500 transition-colors" /> : <Eye className="h-5 w-5 text-gray-400 hover:text-orange-500 transition-colors" />}
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center"
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-5 w-5 text-gray-400 hover:text-orange-500 transition-colors" />
+                ) : (
+                  <Eye className="h-5 w-5 text-gray-400 hover:text-orange-500 transition-colors" />
+                )}
               </button>
             </div>
             {passwordErrors.confirmPassword && (
-              <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-red-600 text-xs mt-1.5 ml-1">
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-red-600 text-xs mt-1.5 ml-1"
+              >
                 {passwordErrors.confirmPassword}
               </motion.p>
             )}
@@ -627,12 +835,22 @@ const AccountSettings = () => {
             disabled={passwordLoading}
             className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-gray-800 hover:bg-gray-900 text-white px-8 py-3 rounded-xl font-bold shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
-            {passwordLoading ? <><Spinner /><span>Updating...</span></> : <><Lock className="w-4 h-4" /><span>Update Password</span></>}
+            {passwordLoading ? (
+              <>
+                <Spinner />
+                <span>Updating...</span>
+              </>
+            ) : (
+              <>
+                <Lock className="w-4 h-4" />
+                <span>Update Password</span>
+              </>
+            )}
           </motion.button>
         </form>
       </div>
 
-      {/* ── Sign Out ── */}
+      {/* ── Sign Out from All Devices ── */}
       <div className="bg-gradient-to-br from-orange-50 via-white to-red-50 border-2 border-orange-100 rounded-3xl p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center space-x-3">
@@ -640,9 +858,11 @@ const AccountSettings = () => {
               <LogOut className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-gray-800">Sign Out</h3>
-              <p className="text-xs text-gray-500">
+              <h3 className="text-base font-bold text-gray-800">
                 Sign Out from All Devices
+              </h3>
+              <p className="text-xs text-gray-500">
+                End every active session, including this one
               </p>
             </div>
           </div>
@@ -653,7 +873,7 @@ const AccountSettings = () => {
             className="flex items-center justify-center space-x-2 bg-white border-2 border-orange-200 hover:border-orange-400 text-orange-600 hover:bg-orange-50 px-6 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm"
           >
             <LogOut className="w-4 h-4" />
-            <span>Sign Out</span>
+            <span>Sign Out Everywhere</span>
           </motion.button>
         </div>
       </div>

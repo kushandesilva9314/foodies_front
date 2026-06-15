@@ -2,20 +2,27 @@ import { refreshToken } from './authService';
 
 const API_URL = 'http://localhost:5000/api';
 
-const getAuthHeaders = () => {
+const getAuthHeaders = (isFormData = false) => {
   const token = localStorage.getItem("token");
-  return {
-    'Content-Type': 'application/json',
+  const headers = {
     'Authorization': `Bearer ${token}`,
   };
+  // Don't set Content-Type for FormData — the browser sets the correct
+  // multipart/form-data boundary automatically.
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return headers;
 };
 
 const authFetch = async (endpoint, options = {}) => {
+  const isFormData = options.body instanceof FormData;
+
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     credentials: 'include', 
     headers: {
-      ...getAuthHeaders(),
+      ...getAuthHeaders(isFormData),
       ...options.headers,
     },
   });
@@ -31,7 +38,7 @@ const authFetch = async (endpoint, options = {}) => {
           ...options,
           credentials: 'include', // ← add this
           headers: {
-            ...getAuthHeaders(),
+            ...getAuthHeaders(isFormData),
             ...options.headers,
           },
         });
@@ -66,3 +73,6 @@ export const authGet = (endpoint) => authFetch(endpoint, { method: 'GET' });
 export const authPost = (endpoint, body) => authFetch(endpoint, { method: 'POST', body: JSON.stringify(body) });
 export const authPut = (endpoint, body) => authFetch(endpoint, { method: 'PUT', body: JSON.stringify(body) });
 export const authDelete = (endpoint) => authFetch(endpoint, { method: 'DELETE' });
+
+// For multipart/form-data requests (e.g. profile photo uploads)
+export const authPutFormData = (endpoint, formData) => authFetch(endpoint, { method: 'PUT', body: formData });

@@ -236,3 +236,68 @@ export const logoutUser = async () => {
     sessionStorage.removeItem("sessionActive");
   }
 };
+
+/**
+ * Update profile (name, mobile, profile photo)
+ * If the mobile number changes, the backend resets is_mobile_verified to false.
+ */
+export const updateProfile = async ({ name, mobile, profilePhoto, removePhoto }) => {
+  try {
+    const { authPutFormData } = await import('./apiService');
+
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('mobile', mobile);
+
+    if (profilePhoto) {
+      formData.append('profile_photo', profilePhoto);
+    }
+    if (removePhoto) {
+      formData.append('removePhoto', 'true');
+    }
+
+    const data = await authPutFormData('/auth/profile', formData);
+
+    // Keep localStorage in sync so navbar / other components reflect the change
+    if (data?.data?.user) {
+      localStorage.setItem('user', JSON.stringify(data.data.user));
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Update profile error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Sign out from ALL devices (deletes every refresh token for this user,
+ * including the current device's). Clears local session afterwards.
+ */
+export const logoutAllDevices = async () => {
+  try {
+    const { authPost } = await import('./apiService');
+    await authPost('/auth/logout-all', {});
+  } catch (error) {
+    console.error('Logout all devices error:', error);
+  } finally {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("rememberMe");
+    sessionStorage.removeItem("sessionActive");
+  }
+};
+
+/**
+ * Change password for the logged-in user (requires current password)
+ */
+export const changePassword = async ({ currentPassword, newPassword }) => {
+  try {
+    const { authPut } = await import('./apiService');
+    const data = await authPut('/auth/change-password', { currentPassword, newPassword });
+    return data;
+  } catch (error) {
+    console.error('Change password error:', error);
+    throw error;
+  }
+};
