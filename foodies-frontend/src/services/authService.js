@@ -301,3 +301,25 @@ export const changePassword = async ({ currentPassword, newPassword }) => {
     throw error;
   }
 };
+
+/**
+ * Tell the backend the Firebase phone verification succeeded
+ * and mark is_mobile_verified = true in the DB
+ */
+export const verifyMobileOtp = async (firebaseToken) => {
+  try {
+    const { authPost } = await import('./apiService');
+    const data = await authPost('/auth/verify-mobile-otp', { firebaseToken });
+
+    // Keep localStorage in sync
+    if (data?.data?.user) {
+      const stored = JSON.parse(localStorage.getItem('user') || '{}');
+      localStorage.setItem('user', JSON.stringify({ ...stored, ...data.data.user }));
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Verify mobile OTP error:', error);
+    throw error;
+  }
+};
