@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, initializeRecaptchaConfig } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBTWgv88hZINpU72c1ta3s9oHmPykY2Vao",
@@ -12,4 +12,10 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-auth.settings.appVerificationDisabledForTesting = true;
+
+// Pre-initialize reCAPTCHA config so it's ready before phone auth is triggered
+initializeRecaptchaConfig(auth).catch(() => {
+  // Silently ignore if reCAPTCHA Enterprise is not available
+});
+
+// auth.settings.appVerificationDisabledForTesting = true; // Only uncomment for local testing with Firebase test numbers
