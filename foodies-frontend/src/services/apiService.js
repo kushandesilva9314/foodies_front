@@ -2,6 +2,23 @@ import { refreshToken } from './authService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+// ── Shared in-flight refresh promise ────────────────────────────────────────
+// If multiple requests 401 at the same time, they all await this SAME
+// promise instead of each calling refreshToken() independently. Refresh
+// tokens are single-use (rotated), so letting two calls race would mean
+// only the first succeeds and the rest get "Invalid refresh token" and
+// force a logout — even though the user was still validly logged in.
+let refreshPromise = null;
+
+const getRefreshPromise = () => {
+  if (!refreshPromise) {
+    refreshPromise = refreshToken().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+};
+
 const getAuthHeaders = (isFormData = false) => {
   const token = localStorage.getItem("token");
   const headers = {
@@ -20,7 +37,7 @@ const authFetch = async (endpoint, options = {}) => {
 
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
-    credentials: 'include', 
+    credentials: 'include',
     headers: {
       ...getAuthHeaders(isFormData),
       ...options.headers,
@@ -32,11 +49,12 @@ const authFetch = async (endpoint, options = {}) => {
 
     if (data.code === 'TOKEN_EXPIRED') {
       try {
-        await refreshToken();
+        // Share one refresh across any requests that 401 at the same time
+        await getRefreshPromise();
 
         const retryResponse = await fetch(`${API_URL}${endpoint}`, {
           ...options,
-          credentials: 'include', // ← add this
+          credentials: 'include',
           headers: {
             ...getAuthHeaders(isFormData),
             ...options.headers,

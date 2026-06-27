@@ -40,7 +40,7 @@ const Login = () => {
   const [resetEmail, setResetEmail] = useState("");
   const [resetEmailError, setResetEmailError] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [verifiedOtp, setVerifiedOtp] = useState(""); // store verified OTP for reset step
+  const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordErrors, setPasswordErrors] = useState({});
@@ -213,13 +213,13 @@ const Login = () => {
 
     setLoading(true);
 
-    try {
-      await verifyResetOTP({
+  try {
+      const data = await verifyResetOTP({
         email: resetEmail.trim().toLowerCase(),
         otp: otpValue,
       });
 
-      setVerifiedOtp(otpValue); // store for reset step
+      setResetToken(data.data.resetToken); // store for reset step
       setResetStep(3);
       setModalError("");
     } catch (error) {
@@ -289,10 +289,10 @@ const Login = () => {
 
     setLoading(true);
 
-    try {
+  try {
       await resetPassword({
         email: resetEmail.trim().toLowerCase(),
-        otp: verifiedOtp,
+        resetToken,
         newPassword,
       });
 
@@ -316,7 +316,7 @@ const Login = () => {
     setResetEmail("");
     setResetEmailError("");
     setOtp(["", "", "", "", "", ""]);
-    setVerifiedOtp("");
+    setResetToken("");
     setNewPassword("");
     setConfirmPassword("");
     setPasswordErrors({});

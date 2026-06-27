@@ -149,12 +149,12 @@ export const verifyResetOTP = async ({ email, otp }) => {
 /**
  * Reset password
  */
-export const resetPassword = async ({ email, otp, newPassword }) => {
+export const resetPassword = async ({ email, resetToken, newPassword }) => {
   try {
     const response = await fetch(`${API_URL}/auth/reset-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, otp, newPassword }),
+      body: JSON.stringify({ email, resetToken, newPassword }),
     });
 
     const data = await response.json();
