@@ -46,13 +46,28 @@ const MobileVerification = ({ mobile, isVerified, onVerified }) => {
     return () => clearTimeout(timer);
   }, [resendTimer]);
 
+  // Fully tear down any existing reCAPTCHA widget, including its DOM node.
+  // verifier.clear() alone can leave stray nodes behind when a previous
+  // render() failed partway (e.g. during the Enterprise → v2 fallback),
+  // which is what triggers "reCAPTCHA has already been rendered in this
+  // element" on the next attempt.
+  const teardownRecaptcha = () => {
+    if (recaptchaVerifierRef.current) {
+      try {
+        recaptchaVerifierRef.current.clear();
+      } catch {
+        // ignore — widget may already be gone
+      }
+      recaptchaVerifierRef.current = null;
+    }
+    const container = document.getElementById("recaptcha-container");
+    if (container) container.innerHTML = "";
+  };
+
   // Clean up reCAPTCHA when component unmounts
   useEffect(() => {
     return () => {
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-        recaptchaVerifierRef.current = null;
-      }
+      teardownRecaptcha();
     };
   }, []);
 
@@ -104,11 +119,8 @@ const MobileVerification = ({ mobile, isVerified, onVerified }) => {
     setError("");
 
     try {
-      // Clear any previous reCAPTCHA instance
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-        recaptchaVerifierRef.current = null;
-      }
+      // Clear any previous reCAPTCHA instance (including stray DOM nodes)
+      teardownRecaptcha();
 
       const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
         size: "invisible",
@@ -139,15 +151,19 @@ const MobileVerification = ({ mobile, isVerified, onVerified }) => {
         );
       } else if (err.code === "auth/too-many-requests") {
         setError("Too many attempts. Please wait a few minutes and try again.");
+      } else if (err.code === "auth/invalid-app-credential") {
+        setError(
+          window.location.hostname === "localhost" ||
+            window.location.hostname === "127.0.0.1"
+            ? "Phone verification isn't supported on localhost. Please test this on a deployed/staging URL added to Firebase Authorized domains."
+            : "Verification setup error. Please make sure this domain is added under Firebase Console → Authentication → Settings → Authorized domains.",
+        );
       } else {
         setError("Failed to send verification code. Please try again.");
       }
 
-      // Clean up failed reCAPTCHA
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-        recaptchaVerifierRef.current = null;
-      }
+      // Clean up failed reCAPTCHA (fully, including DOM node)
+      teardownRecaptcha();
     } finally {
       setSendLoading(false);
     }

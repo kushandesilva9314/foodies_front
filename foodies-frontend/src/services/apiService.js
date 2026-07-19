@@ -90,7 +90,11 @@ const authFetch = async (endpoint, options = {}) => {
 export const authGet = (endpoint) => authFetch(endpoint, { method: 'GET' });
 export const authPost = (endpoint, body) => authFetch(endpoint, { method: 'POST', body: JSON.stringify(body) });
 export const authPut = (endpoint, body) => authFetch(endpoint, { method: 'PUT', body: JSON.stringify(body) });
-export const authDelete = (endpoint) => authFetch(endpoint, { method: 'DELETE' });
+export const authDelete = (endpoint, body) =>
+  authFetch(endpoint, {
+    method: 'DELETE',
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
 
 // For multipart/form-data requests (e.g. profile photo uploads)
 export const authPutFormData = (endpoint, formData) => authFetch(endpoint, { method: 'PUT', body: formData });

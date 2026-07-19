@@ -323,3 +323,33 @@ export const verifyMobileOtp = async (firebaseToken) => {
     throw error;
   }
 };
+
+export const updatePreferences = async ({ mobile_notifications, email_notifications, browser_notifications }) => {
+  try {
+    const { authPut } = await import('./apiService');
+    const data = await authPut('/auth/preferences', {
+      mobile_notifications,
+      email_notifications,
+      browser_notifications,
+    });
+
+    if (data?.data?.user) {
+      const stored = JSON.parse(localStorage.getItem('user') || '{}');
+      localStorage.setItem('user', JSON.stringify({ ...stored, ...data.data.user }));
+    }
+    return data;
+  } catch (error) {
+    console.error('Update preferences error:', error);
+    throw error;
+  }
+};
+
+export const deleteAccount = async (recaptchaToken) => {
+  try {
+    const { authDelete } = await import('./apiService');
+    return await authDelete('/auth/account', { recaptchaToken });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    throw error;
+  }
+};

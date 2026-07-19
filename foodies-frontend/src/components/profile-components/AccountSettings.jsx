@@ -16,16 +16,6 @@ import {
   Shield,
 } from "lucide-react";
 
-// ── Load current user from localStorage (set on login/refresh/profile update) ──
-const getStoredUser = () => {
-  try {
-    const stored = localStorage.getItem("user");
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
-};
-
 // ── Spinner ───────────────────────────────────────────────────────────────────
 const Spinner = () => (
   <svg
@@ -125,20 +115,9 @@ const LogoutModal = ({ isOpen, onClose, onConfirm, loading }) => (
 );
 
 // ── Main Component ────────────────────────────────────────────────────────────
-const AccountSettings = () => {
+const AccountSettings = ({ user, setUser }) => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(
-    getStoredUser() || {
-      id: "",
-      name: "",
-      email: "",
-      mobile: "",
-      profile_photo: null,
-      role: "customer",
-      is_verified: true,
-      is_mobile_verified: false,
-    },
-  );
+  
 
   // Profile form state
   const [profileForm, setProfileForm] = useState({

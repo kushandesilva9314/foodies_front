@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import OrderSummary from "../components/profile-components/order_section";
 import AccountSettings from "../components/profile-components/AccountSettings";
 import MobileVerification from "../components/profile-components/MobileVerification";
+import Preferences from "../components/profile-components/Preferences";
+import DeleteAccount from "../components/profile-components/DeleteAccount";
 
-// ── Load current user from localStorage (set on login/refresh/profile update) ──
 const getStoredUser = () => {
   try {
     const stored = localStorage.getItem("user");
@@ -23,6 +24,9 @@ const Profile = () => {
     role: "customer",
     is_verified: true,
     is_mobile_verified: false,
+    mobile_notifications: false,
+    email_notifications: true,
+    browser_notifications: true,
   });
 
   return (
@@ -46,6 +50,14 @@ const Profile = () => {
               localStorage.setItem("user", JSON.stringify(updated));
             }}
           />
+        </div>
+
+        <div className="mb-12">
+          <Preferences user={user} setUser={setUser} />
+        </div>
+
+        <div className="mb-12">
+          <DeleteAccount />
         </div>
       </div>
     </div>

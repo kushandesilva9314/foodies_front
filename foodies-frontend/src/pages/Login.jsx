@@ -1070,7 +1070,7 @@ const Login = () => {
       </AnimatePresence>
 
       {/* Animations CSS */}
-      <style jsx>{`
+      <style>{`
         @keyframes blob {
           0%,
           100% {
