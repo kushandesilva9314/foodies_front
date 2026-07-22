@@ -98,3 +98,4 @@ export const authDelete = (endpoint, body) =>
 
 // For multipart/form-data requests (e.g. profile photo uploads)
 export const authPutFormData = (endpoint, formData) => authFetch(endpoint, { method: 'PUT', body: formData });
+export const authPostFormData = (endpoint, formData) => authFetch(endpoint, { method: 'POST', body: formData });

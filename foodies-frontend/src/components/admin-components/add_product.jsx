@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Plus,
@@ -8,6 +8,7 @@ import {
   Upload,
   Image as ImageIcon,
   Search,
+  ChevronDown,
 } from "lucide-react";
 import {
   getAllProducts,
@@ -21,6 +22,11 @@ import { useToast } from "../../hooks/useToast";
 import ToastContainer from "../common/ToastContainer";
 import ConfirmModal from "../common/ConfirmModal";
 
+const PORTION_SIZES = ["small", "medium", "large"];
+
+const emptyPortionOptions = () =>
+  PORTION_SIZES.map((size) => ({ size, active: false, price: "" }));
+
 const AddProduct = () => {
   const [products, setProducts] = useState([]);
   const [menus, setMenus] = useState([]);
@@ -31,10 +37,11 @@ const AddProduct = () => {
   const [fetchLoading, setFetchLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Use toast hook
+  // Which portion size is currently shown in the table, per product
+  const [selectedPortions, setSelectedPortions] = useState({});
+
   const toast = useToast();
 
-  // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     productId: null,
@@ -54,15 +61,21 @@ const AddProduct = () => {
   const [featured, setFeatured] = useState("no");
   const [discount, setDiscount] = useState("0");
 
+  // Portions form state
+  const [hasPortions, setHasPortions] = useState(false);
+  const [portionOptions, setPortionOptions] = useState(emptyPortionOptions());
+
   // Calculate discounted price
   const calculateDiscountedPrice = (originalPrice, discountPercent) => {
     if (!discountPercent || discountPercent === 0) return originalPrice;
     return originalPrice - (originalPrice * discountPercent) / 100;
   };
 
-  // Get display price for a product
-  const getDisplayPrice = (product) => {
-    const originalPrice = parseFloat(product.price);
+  // Get display price for a product — pass an overridePrice to price
+  // a specific portion instead of the product's base price
+  const getDisplayPrice = (product, overridePrice) => {
+    const originalPrice =
+      overridePrice !== undefined ? overridePrice : parseFloat(product.price);
     if (product.featured === "yes" && product.discount > 0) {
       return {
         original: originalPrice,
@@ -77,12 +90,21 @@ const AddProduct = () => {
     };
   };
 
+  // Active portions for a product, cheapest first
+  const getSortedActivePortions = (product) => {
+    if (!product.portions?.enabled || !Array.isArray(product.portions.options)) {
+      return [];
+    }
+    return product.portions.options
+      .filter((o) => o.active && o.price != null)
+      .sort((a, b) => a.price - b.price);
+  };
+
   // Fetch data on component mount
   useEffect(() => {
     fetchAllData();
   }, []);
 
-  // Fetch products, menus, and categories
   const fetchAllData = async () => {
     try {
       setFetchLoading(true);
@@ -94,8 +116,16 @@ const AddProduct = () => {
       ]);
 
       setProducts(productsRes.data || []);
-      setMenus(menusRes.data || []);
-      setCategories(categoriesRes.data || []);
+      setMenus(
+        (menusRes.data || [])
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      setCategories(
+        (categoriesRes.data || [])
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      );
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Failed to load data. Please refresh the page.");
@@ -110,7 +140,6 @@ const AddProduct = () => {
       p.item_no.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  // Handle image upload - KEEP THE FILE OBJECT
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (
@@ -131,7 +160,6 @@ const AddProduct = () => {
     }
   };
 
-  // Handle featured change - reset discount to 0 if featured is No
   const handleFeaturedChange = (value) => {
     setFeatured(value);
     if (value === "no") {
@@ -139,7 +167,6 @@ const AddProduct = () => {
     }
   };
 
-  // Check for duplicate item number
   const isDuplicateItemNo = (itemNumber) => {
     const trimmedItemNo = itemNumber.trim().toLowerCase();
     return products.some(
@@ -149,23 +176,39 @@ const AddProduct = () => {
     );
   };
 
+  // Toggle a portion size's active state
+  const togglePortionActive = (index, checked) => {
+    setPortionOptions((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        active: checked,
+        price: checked ? updated[index].price : "",
+      };
+      return updated;
+    });
+  };
+
+  // Set a portion size's price
+  const setPortionPrice = (index, value) => {
+    if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
+    setPortionOptions((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], price: value };
+      return updated;
+    });
+  };
+
   // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // For CREATE: require image file
-    // For UPDATE: image is optional (only required if user wants to change it)
     if (!editingProduct && !productImage) {
       toast.warning("Please upload a product image");
       return;
     }
 
-    if (
-      !itemNo.trim() ||
-      !productName.trim() ||
-      !description.trim() ||
-      !price
-    ) {
+    if (!itemNo.trim() || !productName.trim() || !description.trim()) {
       toast.warning("Please fill in all required fields");
       return;
     }
@@ -175,9 +218,30 @@ const AddProduct = () => {
       return;
     }
 
-    if (isNaN(price) || parseFloat(price) <= 0) {
-      toast.error("Please enter a valid price");
-      return;
+    const activePortions = portionOptions.filter((o) => o.active);
+
+    if (hasPortions) {
+      if (activePortions.length === 0) {
+        toast.warning(
+          "Please enable at least one portion size and set its price",
+        );
+        return;
+      }
+      for (const opt of activePortions) {
+        if (!opt.price || isNaN(opt.price) || parseFloat(opt.price) <= 0) {
+          toast.error(`Please enter a valid price for the ${opt.size} portion`);
+          return;
+        }
+      }
+    } else {
+      if (!price) {
+        toast.warning("Please fill in all required fields");
+        return;
+      }
+      if (isNaN(price) || parseFloat(price) <= 0) {
+        toast.error("Please enter a valid price");
+        return;
+      }
     }
 
     if (
@@ -196,13 +260,27 @@ const AddProduct = () => {
         item_no: itemNo.trim(),
         name: productName.trim(),
         description: description.trim(),
-        price: parseFloat(price),
         availability: availability,
         menu_id: selectedMenu || null,
         category_id: selectedCategory || null,
       };
 
-      // Only add image if it's a new file (File object)
+      if (hasPortions) {
+        const cleanedOptions = portionOptions.map((o) => ({
+          size: o.size,
+          active: o.active,
+          price: o.active ? parseFloat(o.price) : null,
+        }));
+        productData.portions = { enabled: true, options: cleanedOptions };
+        const activePrices = cleanedOptions
+          .filter((o) => o.active)
+          .map((o) => o.price);
+        productData.price = Math.min(...activePrices);
+      } else {
+        productData.portions = { enabled: false, options: portionOptions };
+        productData.price = parseFloat(price);
+      }
+
       if (productImage instanceof File) {
         productData.image = productImage;
       }
@@ -215,7 +293,6 @@ const AddProduct = () => {
         toast.success(response.message || "Product updated successfully!");
         await fetchAllData();
       } else {
-        // For create, image is always required and already checked above
         productData.image = productImage;
         const response = await createProduct(productData);
         toast.success(response.message || "Product created successfully!");
@@ -231,7 +308,6 @@ const AddProduct = () => {
     }
   };
 
-  // Reset form
   const resetForm = () => {
     setItemNo("");
     setProductName("");
@@ -244,11 +320,12 @@ const AddProduct = () => {
     setSelectedCategory("");
     setFeatured("no");
     setDiscount("0");
+    setHasPortions(false);
+    setPortionOptions(emptyPortionOptions());
     setShowForm(false);
     setEditingProduct(null);
   };
 
-  // Open delete confirmation modal
   const openDeleteModal = (product) => {
     setConfirmModal({
       isOpen: true,
@@ -257,7 +334,6 @@ const AddProduct = () => {
     });
   };
 
-  // Close delete confirmation modal
   const closeDeleteModal = () => {
     setConfirmModal({
       isOpen: false,
@@ -266,7 +342,6 @@ const AddProduct = () => {
     });
   };
 
-  // Handle delete confirmation
   const handleDeleteConfirm = async () => {
     setLoading(true);
 
@@ -283,13 +358,12 @@ const AddProduct = () => {
     }
   };
 
-  // Handle update button click
   const handleUpdate = (product) => {
     setEditingProduct(product);
     setItemNo(product.item_no);
     setProductName(product.name);
-    setImagePreview(product.image); // Show existing image URL
-    setProductImage(null); // Reset to null - user can optionally upload new image
+    setImagePreview(product.image);
+    setProductImage(null);
     setDescription(product.description);
     setPrice(product.price.toString());
     setAvailability(product.availability);
@@ -297,20 +371,111 @@ const AddProduct = () => {
     setSelectedCategory(product.category_id || "");
     setFeatured(product.featured);
     setDiscount(product.discount.toString());
+
+    if (product.portions?.enabled) {
+      setHasPortions(true);
+      setPortionOptions(
+        PORTION_SIZES.map((size) => {
+          const found = product.portions.options?.find((o) => o.size === size);
+          return {
+            size,
+            active: found?.active || false,
+            price:
+              found?.active && found?.price != null
+                ? found.price.toString()
+                : "",
+          };
+        }),
+      );
+    } else {
+      setHasPortions(false);
+      setPortionOptions(emptyPortionOptions());
+    }
+
     setShowForm(true);
   };
 
-  // Cancel form
   const handleCancel = () => {
     resetForm();
   };
 
+  // Custom dropdown: click to open, ~4 items visible, then scrolls
+  const Dropdown = ({ options, value, onChange, placeholder, disabled }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+      const handleClickOutside = (e) => {
+        if (ref.current && !ref.current.contains(e.target)) {
+          setOpen(false);
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const selectedLabel =
+      options.find((o) => o.id === value)?.name || placeholder;
+
+    return (
+      <div className="relative" ref={ref}>
+        <button
+          type="button"
+          onClick={() => !disabled && setOpen((prev) => !prev)}
+          disabled={disabled}
+          className={`w-full flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 rounded-lg focus:outline-none transition-colors ${
+            open ? "border-orange-500" : "border-gray-300"
+          } ${disabled ? "bg-gray-100 cursor-not-allowed" : "bg-white"}`}
+        >
+          <span className={value ? "text-gray-800" : "text-gray-400"}>
+            {selectedLabel}
+          </span>
+          <ChevronDown
+            size={18}
+            className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+
+        {open && (
+          <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+              className="w-full text-left px-3 sm:px-4 py-2.5 text-sm sm:text-base text-gray-400 hover:bg-orange-50 transition-colors"
+            >
+              {placeholder}
+            </button>
+            {options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => {
+                  onChange(option.id);
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-3 sm:px-4 py-2.5 text-sm sm:text-base hover:bg-orange-50 transition-colors ${
+                  option.id === value
+                    ? "bg-orange-100 text-orange-700 font-medium"
+                    : "text-gray-700"
+                }`}
+              >
+                {option.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Toast Container */}
       <ToastContainer toasts={toast.toasts} removeToast={toast.removeToast} />
 
-      {/* Confirmation Modal */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         onClose={closeDeleteModal}
@@ -323,7 +488,6 @@ const AddProduct = () => {
         loading={loading}
       />
 
-      {/* Header with Add Button */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
@@ -360,7 +524,6 @@ const AddProduct = () => {
         </div>
       )}
 
-      {/* Add/Edit Form */}
       {showForm && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -494,26 +657,30 @@ const AddProduct = () => {
             </div>
 
             {/* Row 2: Price and Availability */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                  Price * (LKR)
-                </label>
-                <input
-                  type="text"
-                  value={price}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                      setPrice(value);
-                    }
-                  }}
-                  placeholder="Enter price"
-                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
-                  required
-                  disabled={loading}
-                />
-              </div>
+            <div
+              className={`grid grid-cols-1 ${hasPortions ? "" : "md:grid-cols-2"} gap-4 sm:gap-6`}
+            >
+              {!hasPortions && (
+                <div>
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                    Price * (LKR)
+                  </label>
+                  <input
+                    type="text"
+                    value={price}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                        setPrice(value);
+                      }
+                    }}
+                    placeholder="Enter price"
+                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
+                    required={!hasPortions}
+                    disabled={loading}
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
@@ -532,44 +699,95 @@ const AddProduct = () => {
               </div>
             </div>
 
+            {/* Portion Sizes */}
+            <div className="pt-1">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={hasPortions}
+                  onChange={(e) => setHasPortions(e.target.checked)}
+                  disabled={loading}
+                  className="w-5 h-5 accent-orange-500 rounded"
+                />
+                <span className="text-sm sm:text-base font-semibold text-gray-700">
+                  This item has portion sizes (Small / Medium / Large)
+                </span>
+              </label>
+
+              {hasPortions && (
+                <div className="mt-3 space-y-3 p-4 bg-orange-50 border-2 border-orange-200 rounded-lg">
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    Tick the sizes this item is available in, and set a price
+                    for each. At least one size must be enabled.
+                  </p>
+                  {portionOptions.map((option, index) => (
+                    <div
+                      key={option.size}
+                      className="flex items-center gap-3"
+                    >
+                      <label className="flex items-center gap-2 w-24 sm:w-32 flex-shrink-0 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={option.active}
+                          onChange={(e) =>
+                            togglePortionActive(index, e.target.checked)
+                          }
+                          disabled={loading}
+                          className="w-4 h-4 accent-orange-500 rounded"
+                        />
+                        <span className="text-sm font-medium text-gray-700 capitalize">
+                          {option.size}
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={option.price}
+                        onChange={(e) =>
+                          setPortionPrice(index, e.target.value)
+                        }
+                        placeholder={
+                          option.active ? "Enter price (LKR)" : "Tick to enable"
+                        }
+                        disabled={!option.active || loading}
+                        className="flex-1 px-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-400"
+                      />
+                    </div>
+                  ))}
+                  {portionOptions.every((o) => !o.active) && (
+                    <p className="text-red-600 text-xs sm:text-sm">
+                      ⚠️ Enable at least one portion size
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Row 3: Menu and Category */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Menu (Optional)
                 </label>
-                <select
+                <Dropdown
+                  options={menus}
                   value={selectedMenu}
-                  onChange={(e) => setSelectedMenu(e.target.value)}
-                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
+                  onChange={setSelectedMenu}
+                  placeholder="-- Select Menu --"
                   disabled={loading}
-                >
-                  <option value="">-- Select Menu --</option>
-                  {menus.map((menu) => (
-                    <option key={menu.id} value={menu.id}>
-                      {menu.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Category (Optional)
                 </label>
-                <select
+                <Dropdown
+                  options={categories}
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
+                  onChange={setSelectedCategory}
+                  placeholder="-- Select Category --"
                   disabled={loading}
-                >
-                  <option value="">-- Select Category --</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             </div>
 
@@ -616,26 +834,11 @@ const AddProduct = () => {
                     className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
                     disabled={featured === "no" || loading}
                   />
-                  {featured === "yes" &&
-                    price &&
-                    discount &&
-                    parseFloat(discount) > 0 && (
-                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
-                        <p className="text-xs sm:text-sm text-green-700">
-                          💰 Final Price:{" "}
-                          <span className="font-bold">
-                            LKR{" "}
-                            {calculateDiscountedPrice(
-                              parseFloat(price),
-                              parseFloat(discount),
-                            ).toFixed(2)}
-                          </span>
-                        </p>
-                      </div>
-                    )}
                   {featured === "yes" && (
                     <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                      Discount is applicable when product is featured
+                      {hasPortions
+                        ? "Discount applies to every portion size."
+                        : "Discount is applicable when product is featured"}
                     </p>
                   )}
                   {featured === "no" && (
@@ -693,9 +896,9 @@ const AddProduct = () => {
           className="bg-white rounded-lg shadow-md overflow-hidden"
         >
           {/* Desktop Table View */}
-          <div className="hidden lg:block overflow-x-auto">
+          <div className="hidden lg:block overflow-x-auto overflow-y-auto max-h-[420px]">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-orange-500 to-red-600 text-white">
+              <thead className="bg-gradient-to-r from-orange-500 to-red-600 text-white sticky top-0 z-10">
                 <tr>
                   <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">
                     Item No
@@ -716,13 +919,24 @@ const AddProduct = () => {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredProducts.map((product, index) => {
-                  const priceInfo = getDisplayPrice(product);
+                  const sortedPortions = getSortedActivePortions(product);
+                  const hasMultiplePortions = sortedPortions.length > 0;
+                  const currentSize =
+                    selectedPortions[product.id] || sortedPortions[0]?.size;
+                  const currentPortion =
+                    sortedPortions.find((o) => o.size === currentSize) ||
+                    sortedPortions[0];
+                  const priceInfo = getDisplayPrice(
+                    product,
+                    currentPortion ? currentPortion.price : undefined,
+                  );
+
                   return (
                     <motion.tr
                       key={product.id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
+                      transition={{ delay: index * 0.05 }}
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
@@ -763,6 +977,31 @@ const AddProduct = () => {
                           <span className="font-semibold text-gray-800 text-sm sm:text-base">
                             LKR {priceInfo.original.toFixed(2)}
                           </span>
+                        )}
+
+                        {hasMultiplePortions && (
+                          <div className="flex gap-1 mt-2">
+                            {sortedPortions.map((opt) => (
+                              <button
+                                key={opt.size}
+                                type="button"
+                                onClick={() =>
+                                  setSelectedPortions((prev) => ({
+                                    ...prev,
+                                    [product.id]: opt.size,
+                                  }))
+                                }
+                                title={`${opt.size.charAt(0).toUpperCase()}${opt.size.slice(1)} — LKR ${opt.price.toFixed(2)}`}
+                                className={`text-xs w-6 h-6 flex items-center justify-center rounded-full border font-semibold transition-colors ${
+                                  currentSize === opt.size
+                                    ? "bg-orange-500 text-white border-orange-500"
+                                    : "bg-white text-gray-600 border-gray-300 hover:border-orange-400"
+                                }`}
+                              >
+                                {opt.size.charAt(0).toUpperCase()}
+                              </button>
+                            ))}
+                          </div>
                         )}
                       </td>
 
@@ -812,62 +1051,111 @@ const AddProduct = () => {
             </table>
           </div>
 
-          {/* Mobile/Tablet Card View - SIMPLIFIED */}
-          <div className="lg:hidden divide-y divide-gray-200">
-            {filteredProducts.map((product, index) => (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="p-4 hover:bg-gray-50 transition-colors"
-              >
-                {/* Image, Name, Item No, and Action Buttons */}
-                <div className="flex items-center gap-3">
-                  {/* Product Image */}
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="h-16 w-16 object-cover rounded-lg border-2 border-orange-300 shadow-sm flex-shrink-0"
-                  />
+          {/* Mobile/Tablet Card View */}
+          <div className="lg:hidden divide-y divide-gray-200 max-h-[440px] overflow-y-auto">
+            {filteredProducts.map((product, index) => {
+              const sortedPortions = getSortedActivePortions(product);
+              const hasMultiplePortions = sortedPortions.length > 0;
+              const currentSize =
+                selectedPortions[product.id] || sortedPortions[0]?.size;
+              const currentPortion =
+                sortedPortions.find((o) => o.size === currentSize) ||
+                sortedPortions[0];
+              const priceInfo = getDisplayPrice(
+                product,
+                currentPortion ? currentPortion.price : undefined,
+              );
 
-                  {/* Name and Item No */}
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-gray-800 text-sm sm:text-base mb-1 truncate">
-                      {product.name}
-                    </h4>
-                    <span className="inline-block font-mono text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                      #{product.item_no}
-                    </span>
+              return (
+                <motion.div
+                  key={product.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="p-4 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="h-16 w-16 object-cover rounded-lg border-2 border-orange-300 shadow-sm flex-shrink-0"
+                    />
+
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-800 text-sm sm:text-base mb-1 truncate">
+                        {product.name}
+                      </h4>
+                      <span className="inline-block font-mono text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                        #{product.item_no}
+                      </span>
+                      <div className="mt-1 flex items-center gap-2">
+                        {priceInfo.hasDiscount ? (
+                          <>
+                            <span className="text-gray-400 line-through text-xs">
+                              LKR {priceInfo.original.toFixed(2)}
+                            </span>
+                            <span className="font-bold text-green-600 text-sm">
+                              LKR {priceInfo.discounted.toFixed(2)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="font-semibold text-gray-800 text-sm">
+                            LKR {priceInfo.original.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                      {hasMultiplePortions && (
+                        <div className="flex gap-1 mt-1">
+                          {sortedPortions.map((opt) => (
+                            <button
+                              key={opt.size}
+                              type="button"
+                              onClick={() =>
+                                setSelectedPortions((prev) => ({
+                                  ...prev,
+                                  [product.id]: opt.size,
+                                }))
+                              }
+                              className={`text-xs w-6 h-6 flex items-center justify-center rounded-full border font-semibold transition-colors ${
+                                currentSize === opt.size
+                                  ? "bg-orange-500 text-white border-orange-500"
+                                  : "bg-white text-gray-600 border-gray-300"
+                              }`}
+                            >
+                              {opt.size.charAt(0).toUpperCase()}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center space-x-2 flex-shrink-0">
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleUpdate(product)}
+                        disabled={loading}
+                        className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+                        title="Update"
+                      >
+                        <Edit2 size={18} />
+                      </motion.button>
+
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => openDeleteModal(product)}
+                        disabled={loading}
+                        className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </motion.button>
+                    </div>
                   </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center space-x-2 flex-shrink-0">
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleUpdate(product)}
-                      disabled={loading}
-                      className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
-                      title="Update"
-                    >
-                      <Edit2 size={18} />
-                    </motion.button>
-
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => openDeleteModal(product)}
-                      disabled={loading}
-                      className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} />
-                    </motion.button>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         </motion.div>
       ) : (

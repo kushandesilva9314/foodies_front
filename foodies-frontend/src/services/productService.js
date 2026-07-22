@@ -1,3 +1,5 @@
+import { authPostFormData, authPutFormData, authDelete } from './apiService';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Get all products
@@ -34,7 +36,7 @@ export const getProductById = async (id) => {
   }
 };
 
-// Create new product
+// Create new product (admin only)
 export const createProduct = async (productData) => {
   try {
     // Create FormData
@@ -54,25 +56,22 @@ export const createProduct = async (productData) => {
       formData.append('category_id', productData.category_id);
     }
 
-    const response = await fetch(`${API_URL}/products`, {
-      method: 'POST',
-      body: formData,
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to create product');
+    // Portions (Small/Medium/Large) — sent as a JSON string since
+    // FormData can't carry nested objects directly
+    if (productData.portions) {
+      formData.append('portions', JSON.stringify(productData.portions));
     }
-    
-    return data;
+
+    // Uses authPostFormData instead of raw fetch — attaches the
+    // Authorization header and auto-refreshes the token if expired.
+    return await authPostFormData('/products', formData);
   } catch (error) {
     console.error('Create product error:', error);
     throw error;
   }
 };
 
-// Update product
+// Update product (admin only)
 export const updateProduct = async (id, productData) => {
   try {
     // Create FormData
@@ -104,38 +103,23 @@ export const updateProduct = async (id, productData) => {
       formData.append('discount', productData.discount);
     }
 
-    const response = await fetch(`${API_URL}/products/${id}`, {
-      method: 'PUT',
-      body: formData,
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to update product');
+    // Portions (Small/Medium/Large) — sent as a JSON string since
+    // FormData can't carry nested objects directly
+    if (productData.portions) {
+      formData.append('portions', JSON.stringify(productData.portions));
     }
-    
-    return data;
+
+    return await authPutFormData(`/products/${id}`, formData);
   } catch (error) {
     console.error('Update product error:', error);
     throw error;
   }
 };
 
-// Delete product
+// Delete product (admin only)
 export const deleteProduct = async (id) => {
   try {
-    const response = await fetch(`${API_URL}/products/${id}`, {
-      method: 'DELETE',
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to delete product');
-    }
-    
-    return data;
+    return await authDelete(`/products/${id}`);
   } catch (error) {
     console.error('Delete product error:', error);
     throw error;

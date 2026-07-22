@@ -401,9 +401,9 @@ const AddCategory = () => {
           className="bg-white rounded-lg shadow-md overflow-hidden"
         >
           {/* Keep your existing table code */}
-          <div className="hidden sm:block overflow-x-auto">
+          <div className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[420px]">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-orange-500 to-red-600 text-white">
+              <thead className="bg-gradient-to-r from-orange-500 to-red-600 text-white sticky top-0 z-10">
                 <tr>
                   <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">
                     Category
@@ -465,7 +465,7 @@ const AddCategory = () => {
           </div>
 
           {/* Mobile Card View */}
-          <div className="sm:hidden divide-y divide-gray-200">
+          <div className="sm:hidden divide-y divide-gray-200 max-h-[440px] overflow-y-auto">
             {filteredCategories.map((category, index) => (
               <motion.div
                 key={category.id}

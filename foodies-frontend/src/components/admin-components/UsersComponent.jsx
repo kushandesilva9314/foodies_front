@@ -61,7 +61,7 @@ const UsersComponent = () => {
     (c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.mobile.includes(searchQuery)
+      c.mobile.includes(searchQuery),
   );
 
   // Open view modal
@@ -265,7 +265,9 @@ const UsersComponent = () => {
                         : "bg-red-100 text-red-600"
                     }`}
                   >
-                    {viewModal.customer.is_verified ? "✓ Verified" : "Unverified"}
+                    {viewModal.customer.is_verified
+                      ? "✓ Verified"
+                      : "Unverified"}
                   </span>
                 </div>
 
@@ -352,7 +354,10 @@ const UsersComponent = () => {
           animate={{ opacity: 1 }}
           className="bg-white rounded-lg shadow-md p-8 sm:p-12 text-center"
         >
-          <UserX size={48} className="mx-auto text-gray-300 mb-4 sm:w-16 sm:h-16" />
+          <UserX
+            size={48}
+            className="mx-auto text-gray-300 mb-4 sm:w-16 sm:h-16"
+          />
           <h3 className="text-lg sm:text-xl font-semibold text-gray-600 mb-2">
             No Customers Yet
           </h3>
@@ -383,9 +388,9 @@ const UsersComponent = () => {
           className="bg-white rounded-lg shadow-md overflow-hidden"
         >
           {/* Desktop Table */}
-          <div className="hidden lg:block overflow-x-auto">
+          <div className="hidden lg:block overflow-x-auto overflow-y-auto max-h-[420px]">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-orange-500 to-red-600 text-white">
+              <thead className="bg-gradient-to-r from-orange-500 to-red-600 text-white sticky top-0 z-10">
                 <tr>
                   <th className="px-6 py-4 text-left font-semibold text-sm">
                     Customer
@@ -473,7 +478,9 @@ const UsersComponent = () => {
                             : "bg-gray-100 text-gray-500"
                         }`}
                       >
-                        {customer.is_mobile_verified ? "Verified" : "Unverified"}
+                        {customer.is_mobile_verified
+                          ? "Verified"
+                          : "Unverified"}
                       </span>
                     </td>
 
@@ -514,7 +521,7 @@ const UsersComponent = () => {
           </div>
 
           {/* Mobile Card View */}
-          <div className="lg:hidden divide-y divide-gray-200">
+          <div className="lg:hidden divide-y divide-gray-200 max-h-[440px] overflow-y-auto">
             {filteredCustomers.map((customer, index) => (
               <motion.div
                 key={customer.id}

@@ -1,3 +1,5 @@
+import { authPostFormData, authPutFormData, authDelete } from './apiService';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Get all categories
@@ -34,7 +36,7 @@ export const getCategoryById = async (id) => {
   }
 };
 
-// Create new category
+// Create new category (admin only)
 export const createCategory = async (categoryData) => {
   try {
     // Create FormData
@@ -42,26 +44,16 @@ export const createCategory = async (categoryData) => {
     formData.append('name', categoryData.name);
     formData.append('image', categoryData.image); // This should be a File object
 
-    const response = await fetch(`${API_URL}/categories`, {
-      method: 'POST',
-      // DO NOT set Content-Type header - browser will set it automatically with boundary
-      body: formData,
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to create category');
-    }
-    
-    return data;
+    // authPostFormData handles the Authorization header and
+    // Content-Type is still left unset for the browser to add the boundary
+    return await authPostFormData('/categories', formData);
   } catch (error) {
     console.error('Create category error:', error);
     throw error;
   }
 };
 
-// Update category
+// Update category (admin only)
 export const updateCategory = async (id, categoryData) => {
   try {
     // Create FormData
@@ -73,38 +65,17 @@ export const updateCategory = async (id, categoryData) => {
       formData.append('image', categoryData.image);
     }
 
-    const response = await fetch(`${API_URL}/categories/${id}`, {
-      method: 'PUT',
-      body: formData,
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to update category');
-    }
-    
-    return data;
+    return await authPutFormData(`/categories/${id}`, formData);
   } catch (error) {
     console.error('Update category error:', error);
     throw error;
   }
 };
 
-// Delete category
+// Delete category (admin only)
 export const deleteCategory = async (id) => {
   try {
-    const response = await fetch(`${API_URL}/categories/${id}`, {
-      method: 'DELETE',
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to delete category');
-    }
-    
-    return data;
+    return await authDelete(`/categories/${id}`);
   } catch (error) {
     console.error('Delete category error:', error);
     throw error;

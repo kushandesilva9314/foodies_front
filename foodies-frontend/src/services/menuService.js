@@ -1,3 +1,5 @@
+import { authPostFormData, authPutFormData, authDelete } from './apiService';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Get all menus
@@ -34,7 +36,7 @@ export const getMenuById = async (id) => {
   }
 };
 
-// Create new menu
+// Create new menu (admin only)
 export const createMenu = async (menuData) => {
   try {
     // Create FormData
@@ -42,25 +44,14 @@ export const createMenu = async (menuData) => {
     formData.append('name', menuData.name);
     formData.append('image', menuData.image); // This should be a File object
 
-    const response = await fetch(`${API_URL}/menus`, {
-      method: 'POST',
-      body: formData,
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to create menu');
-    }
-    
-    return data;
+    return await authPostFormData('/menus', formData);
   } catch (error) {
     console.error('Create menu error:', error);
     throw error;
   }
 };
 
-// Update menu
+// Update menu (admin only)
 export const updateMenu = async (id, menuData) => {
   try {
     // Create FormData
@@ -72,38 +63,17 @@ export const updateMenu = async (id, menuData) => {
       formData.append('image', menuData.image);
     }
 
-    const response = await fetch(`${API_URL}/menus/${id}`, {
-      method: 'PUT',
-      body: formData,
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to update menu');
-    }
-    
-    return data;
+    return await authPutFormData(`/menus/${id}`, formData);
   } catch (error) {
     console.error('Update menu error:', error);
     throw error;
   }
 };
 
-// Delete menu
+// Delete menu (admin only)
 export const deleteMenu = async (id) => {
   try {
-    const response = await fetch(`${API_URL}/menus/${id}`, {
-      method: 'DELETE',
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to delete menu');
-    }
-    
-    return data;
+    return await authDelete(`/menus/${id}`);
   } catch (error) {
     console.error('Delete menu error:', error);
     throw error;
