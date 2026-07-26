@@ -17,7 +17,6 @@ import {
   deleteProduct,
 } from "../../services/productService";
 import { getAllMenus } from "../../services/menuService";
-import { getAllCategories } from "../../services/categoryService";
 import { useToast } from "../../hooks/useToast";
 import ToastContainer from "../common/ToastContainer";
 import ConfirmModal from "../common/ConfirmModal";
@@ -30,7 +29,6 @@ const emptyPortionOptions = () =>
 const AddProduct = () => {
   const [products, setProducts] = useState([]);
   const [menus, setMenus] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -65,6 +63,14 @@ const AddProduct = () => {
   const [hasPortions, setHasPortions] = useState(false);
   const [portionOptions, setPortionOptions] = useState(emptyPortionOptions());
 
+  // Categories available for whichever menu is currently selected —
+  // categories now live embedded inside each menu, not a separate table
+  const availableCategories = selectedMenu
+    ? (menus.find((m) => m.id === selectedMenu)?.categories || [])
+        .slice()
+        .sort((a, b) => a.position - b.position)
+    : [];
+
   // Calculate discounted price
   const calculateDiscountedPrice = (originalPrice, discountPercent) => {
     if (!discountPercent || discountPercent === 0) return originalPrice;
@@ -92,7 +98,10 @@ const AddProduct = () => {
 
   // Active portions for a product, cheapest first
   const getSortedActivePortions = (product) => {
-    if (!product.portions?.enabled || !Array.isArray(product.portions.options)) {
+    if (
+      !product.portions?.enabled ||
+      !Array.isArray(product.portions.options)
+    ) {
       return [];
     }
     return product.portions.options
@@ -109,22 +118,14 @@ const AddProduct = () => {
     try {
       setFetchLoading(true);
 
-      const [productsRes, menusRes, categoriesRes] = await Promise.all([
+      const [productsRes, menusRes] = await Promise.all([
         getAllProducts(),
         getAllMenus(),
-        getAllCategories(),
       ]);
 
       setProducts(productsRes.data || []);
       setMenus(
-        (menusRes.data || [])
-          .slice()
-          .sort((a, b) => a.name.localeCompare(b.name)),
-      );
-      setCategories(
-        (categoriesRes.data || [])
-          .slice()
-          .sort((a, b) => a.name.localeCompare(b.name)),
+        (menusRes.data || []).slice().sort((a, b) => a.name.localeCompare(b.name)),
       );
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -167,11 +168,27 @@ const AddProduct = () => {
     }
   };
 
+  // When the menu changes, the previously selected category may no
+  // longer be valid (it belongs to a different menu) — reset it.
+  const handleMenuChange = (menuId) => {
+    setSelectedMenu(menuId);
+    setSelectedCategory("");
+  };
+
   const isDuplicateItemNo = (itemNumber) => {
     const trimmedItemNo = itemNumber.trim().toLowerCase();
     return products.some(
       (product) =>
         product.item_no.toLowerCase() === trimmedItemNo &&
+        (!editingProduct || product.id !== editingProduct.id),
+    );
+  };
+
+  const isDuplicateName = (name) => {
+    const trimmedName = name.trim().toLowerCase();
+    return products.some(
+      (product) =>
+        product.name.trim().toLowerCase() === trimmedName &&
         (!editingProduct || product.id !== editingProduct.id),
     );
   };
@@ -215,6 +232,11 @@ const AddProduct = () => {
 
     if (isDuplicateItemNo(itemNo)) {
       toast.error(`A product with Item No "${itemNo.trim()}" already exists`);
+      return;
+    }
+
+    if (isDuplicateName(productName)) {
+      toast.error(`A product named "${productName.trim()}" already exists`);
       return;
     }
 
@@ -580,6 +602,11 @@ const AddProduct = () => {
                   required
                   disabled={loading}
                 />
+                {productName.trim() && isDuplicateName(productName) && (
+                  <p className="text-red-600 text-xs sm:text-sm mt-2">
+                    ⚠️ A product with this name already exists
+                  </p>
+                )}
               </div>
             </div>
 
@@ -721,10 +748,7 @@ const AddProduct = () => {
                     for each. At least one size must be enabled.
                   </p>
                   {portionOptions.map((option, index) => (
-                    <div
-                      key={option.size}
-                      className="flex items-center gap-3"
-                    >
+                    <div key={option.size} className="flex items-center gap-3">
                       <label className="flex items-center gap-2 w-24 sm:w-32 flex-shrink-0 cursor-pointer select-none">
                         <input
                           type="checkbox"
@@ -742,9 +766,7 @@ const AddProduct = () => {
                       <input
                         type="text"
                         value={option.price}
-                        onChange={(e) =>
-                          setPortionPrice(index, e.target.value)
-                        }
+                        onChange={(e) => setPortionPrice(index, e.target.value)}
                         placeholder={
                           option.active ? "Enter price (LKR)" : "Tick to enable"
                         }
@@ -762,7 +784,7 @@ const AddProduct = () => {
               )}
             </div>
 
-            {/* Row 3: Menu and Category */}
+            {/* Row 3: Menu and Category — category depends on menu */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
@@ -771,7 +793,7 @@ const AddProduct = () => {
                 <Dropdown
                   options={menus}
                   value={selectedMenu}
-                  onChange={setSelectedMenu}
+                  onChange={handleMenuChange}
                   placeholder="-- Select Menu --"
                   disabled={loading}
                 />
@@ -782,12 +804,19 @@ const AddProduct = () => {
                   Category (Optional)
                 </label>
                 <Dropdown
-                  options={categories}
+                  options={availableCategories}
                   value={selectedCategory}
                   onChange={setSelectedCategory}
-                  placeholder="-- Select Category --"
-                  disabled={loading}
+                  placeholder={
+                    selectedMenu ? "-- Select Category --" : "Select a menu first"
+                  }
+                  disabled={loading || !selectedMenu}
                 />
+                {selectedMenu && availableCategories.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    This menu has no categories yet.
+                  </p>
+                )}
               </div>
             </div>
 

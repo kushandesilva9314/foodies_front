@@ -14,7 +14,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import AddMenu from "../components/admin-components/add_menu.jsx";
-import AddCategory from "../components/admin-components/add_category.jsx";
 import ProductComponent from "../components/admin-components/add_product.jsx";
 import UsersComponent from "../components/admin-components/UsersComponent.jsx";
 
@@ -60,15 +59,13 @@ const Admin = () => {
   const catalogTabs = [
     { id: "product", name: "Product" },
     { id: "menu", name: "Menu" },
-    { id: "categorize", name: "Categorize" },
   ];
-
   // Handle logout
-const handleLogout = async () => {
-  const { logoutUser } = await import('../services/authService');
-  await logoutUser();
-  navigate("/login");
-};
+  const handleLogout = async () => {
+    const { logoutUser } = await import("../services/authService");
+    await logoutUser();
+    navigate("/login");
+  };
 
   const handleNavClick = (itemId) => {
     setActiveNav(itemId);
@@ -125,7 +122,10 @@ const handleLogout = async () => {
         <div className="p-4 sm:p-6 border-b border-gray-700">
           <div className="flex items-center space-x-3 mb-4">
             <div className="relative h-10 w-10 sm:h-12 sm:w-12">
-              <div onClick={() => navigate("/")} className="relative bg-white rounded-full p-0.5 shadow-lg h-full w-full flex items-center justify-center cursor-pointer">
+              <div
+                onClick={() => navigate("/")}
+                className="relative bg-white rounded-full p-0.5 shadow-lg h-full w-full flex items-center justify-center cursor-pointer"
+              >
                 <img
                   src={logo}
                   alt="Foodies Logo"
@@ -269,16 +269,11 @@ const handleLogout = async () => {
             {activeNav === "catalog" && activeCatalogTab === "menu" && (
               <AddMenu />
             )}
-            {activeNav === "catalog" && activeCatalogTab === "categorize" && (
-              <AddCategory />
-            )}
             {activeNav === "catalog" && activeCatalogTab === "product" && (
               <ProductComponent />
             )}
 
             {activeNav === "users" && <UsersComponent />}
-
-            
           </motion.div>
         </div>
       </main>
